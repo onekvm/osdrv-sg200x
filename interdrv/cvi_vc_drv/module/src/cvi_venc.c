@@ -92,6 +92,7 @@ extern CVI_S32 vb_release_block(VB_BLK blk);
 extern void wake_sbm_waitinng(void);
 extern void cvi_VENC_SBM_IrqDisable(void);
 extern void cvi_VENC_SBM_IrqEnable(void);
+extern wait_queue_head_t tWaitQueue[];
 
 
 static CVI_S32 cviInitChnCtx(VENC_CHN VeChn, const VENC_CHN_ATTR_S *pstAttr);
@@ -558,6 +559,7 @@ static int venc_event_handler(CVI_VOID *data)
 
 		VENC_SET_HANDLER_STATE(16);
 		SEMA_POST(&pChnVars->sem_send);
+		wake_up_interruptible(&tWaitQueue[VencChn]);
 
 		CVI_VENC_TRACE("[%d]wait release\n", vi_cnt);
 		if (SEMA_WAIT(&pChnVars->sem_release) != 0) {
@@ -7334,5 +7336,4 @@ CVI_S32 CVI_VENC_GetSvcParam(VENC_CHN VeChn, VENC_SVC_PARAM_S *pstSvcParam)
 	memcpy(pstSvcParam, &pChnHandle->svcParam, sizeof(VENC_SVC_PARAM_S));
 	return CVI_SUCCESS;
 }
-
 
