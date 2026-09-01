@@ -6562,7 +6562,8 @@ static int _vi_event_handler_thread(void * arg)
 		_vi_update_chnRealFrameRate(&gViCtx->chnStatus[chn.s32ChnId]);
 		time[0] = ktime_to_timespec64(ktime_get());
 #endif
-		ret = wait_event_timeout(vdev->vi_th[th_id].wq,
+		/* No HDMI frames still wake every 500 ms; TASK_IDLE keeps that off loadavg. */
+		ret = wait_event_idle_timeout(vdev->vi_th[th_id].wq,
 					vdev->vi_th[th_id].flag != 0 || kthread_should_stop(),
 					msecs_to_jiffies(timeout) - 1);
 		flag = vdev->vi_th[th_id].flag;
@@ -7167,7 +7168,7 @@ static int _vi_err_handler_thread(void *arg)
 	enum E_VI_TH th_id = E_VI_TH_ERR_HANDLER;
 
 	while (1) {
-		wait_event(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
+		wait_event_idle(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
 
 		if (vdev->vi_th[th_id].flag == 1)
 			err_raw_num = ISP_PRERAW_A;
@@ -7498,7 +7499,7 @@ static int _vi_preraw_thread(void *arg)
 	enum E_VI_TH th_id = E_VI_TH_PRERAW;
 
 	while (1) {
-		wait_event(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
+		wait_event_idle(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
 		vdev->vi_th[th_id].flag = 0;
 
 		if (kthread_should_stop()) {
@@ -7595,7 +7596,7 @@ static int _vi_vblank_handler_thread(void *arg)
 	raw_num = (vdev->vi_th[th_id].flag = 1) ? ISP_PRERAW_A : ISP_PRERAW_B;
 
 	while (1) {
-		wait_event(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
+		wait_event_idle(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
 		vdev->vi_th[th_id].flag = 0;
 
 		if (kthread_should_stop()) {
@@ -7703,7 +7704,7 @@ static int _vi_run_tpu_thread(void *arg)
 	enum E_VI_TH th_id = E_VI_TH_RUN_TPU;
 
 	while (1) {
-		wait_event(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0
+		wait_event_idle(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0
 			|| kthread_should_stop());
 
 		if (vdev->vi_th[th_id].flag != 0) {
