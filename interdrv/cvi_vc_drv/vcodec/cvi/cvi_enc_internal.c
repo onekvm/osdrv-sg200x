@@ -106,7 +106,7 @@ static int cviEncode265HeaderByType(stTestEncoder *pTestEnc,
 #if CACHE_ENCODE_HEADER
 	stPack *pPack;
 	stStreamPack *psp = &pTestEnc->streamPack;
-	Uint8 *pSpsBuf = NULL;
+	Uint8 *pHeaderBuf = NULL;
 #endif
 
 	switch (enType) {
@@ -153,20 +153,20 @@ static int cviEncode265HeaderByType(stTestEncoder *pTestEnc,
 
 			pPack = &psp->pack[psp->totalPacks];
 			pPack->len = pTestEnc->headerBackup[nalIdx].size;
-			pPack->addr = pTestEnc->headerBackup[nalIdx].pBuf;
-			pPack->u64PhyAddr = pTestEnc->headerBackup[nalIdx].buf;
-			pPack->cviNalType = nal_type;
-			pPack->need_free = 0;
-			pPack->u64PTS = pTestEnc->u64Pts;
-
-			// sps maybe realloc mem for vui info later
-			if (enType == CODEOPT_ENC_SPS) {
-				pSpsBuf = (Uint8 *)osal_kmalloc(pPack->len);
-				memcpy(pSpsBuf, pPack->addr, pPack->len);
-				pPack->addr = pSpsBuf;
-				pPack->u64PhyAddr = virt_to_phys(pSpsBuf);
-				pPack->need_free = 1;
+			pHeaderBuf = (Uint8 *)osal_kmalloc(pPack->len);
+			if (!pHeaderBuf) {
+				CVI_VC_ERR("allocate cached HEVC header, type:%d, len:%d\n",
+					nal_type, pPack->len);
+				MUTEX_UNLOCK(&psp->packMutex);
+				return FALSE;
 			}
+			memcpy(pHeaderBuf, pTestEnc->headerBackup[nalIdx].pBuf,
+			       pPack->len);
+			pPack->addr = pHeaderBuf;
+			pPack->u64PhyAddr = virt_to_phys(pHeaderBuf);
+			pPack->cviNalType = nal_type;
+			pPack->need_free = 1;
+			pPack->u64PTS = pTestEnc->u64Pts;
 
 			psp->totalPacks++;
 			MUTEX_UNLOCK(&psp->packMutex);
@@ -298,7 +298,7 @@ int cviEncode264Header(stTestEncoder *pTestEnc)
 	int nalType;
 	stStreamPack *psp = &pTestEnc->streamPack;
 	stPack *pPack = NULL;
-	Uint8 *pSpsBuf = NULL;
+	Uint8 *pHeaderBuf = NULL;
 
 	if (pTestEnc->bEncHeader == 1) {
 		for (cacheIdx = 0; cacheIdx < 8; ++cacheIdx) {
@@ -330,20 +330,20 @@ int cviEncode264Header(stTestEncoder *pTestEnc)
 
 				pPack = &psp->pack[psp->totalPacks];
 				pPack->len = pTestEnc->headerBackup[cacheIdx].size;
-				pPack->addr = pTestEnc->headerBackup[cacheIdx].pBuf;
-				pPack->u64PhyAddr = pTestEnc->headerBackup[cacheIdx].buf;
-				pPack->cviNalType = nalType;
-				pPack->need_free = 0;
-				pPack->u64PTS = pTestEnc->u64Pts;
-
-				// sps maybe realloc mem for vui info later
-				if (nalType == NAL_SPS) {
-					pSpsBuf = (Uint8 *)osal_kmalloc(pPack->len);
-					memcpy(pSpsBuf, pPack->addr, pPack->len);
-					pPack->addr = pSpsBuf;
-					pPack->u64PhyAddr = virt_to_phys(pSpsBuf);
-					pPack->need_free = 1;
+				pHeaderBuf = (Uint8 *)osal_kmalloc(pPack->len);
+				if (!pHeaderBuf) {
+					CVI_VC_ERR("allocate cached AVC header, type:%d, len:%d\n",
+						nalType, pPack->len);
+					MUTEX_UNLOCK(&psp->packMutex);
+					return FALSE;
 				}
+				memcpy(pHeaderBuf, pTestEnc->headerBackup[cacheIdx].pBuf,
+				       pPack->len);
+				pPack->addr = pHeaderBuf;
+				pPack->u64PhyAddr = virt_to_phys(pHeaderBuf);
+				pPack->cviNalType = nalType;
+				pPack->need_free = 1;
+				pPack->u64PTS = pTestEnc->u64Pts;
 
 				psp->totalPacks++;
 				MUTEX_UNLOCK(&psp->packMutex);
