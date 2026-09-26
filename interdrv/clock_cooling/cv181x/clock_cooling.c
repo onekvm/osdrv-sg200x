@@ -253,8 +253,9 @@ cv181x_cooling_device_register(struct device *dev)
 	clk_tpu_max_freq = clk_get_rate(cvcdev->clk_tpu);
 
 	/* if od */
-	if ((clk_cpu_max_freq == 1050000000 && clk_tpu_max_freq == 700000000) ||
-		(clk_cpu_max_freq == 1000000000 && clk_tpu_max_freq == 700000000)) {
+	if (((clk_cpu_max_freq == 1050000000 && clk_tpu_max_freq == 700000000) ||
+	     (clk_cpu_max_freq == 1000000000 && clk_tpu_max_freq == 700000000)) &&
+	    (proplen < 0 || proplen % 2)) {
 		cvcdev->dev_freqs = devm_kmemdup(dev, &default_dev_freqs_od, sizeof(default_dev_freqs_od), GFP_KERNEL);
 		if (!cvcdev->dev_freqs)
 			return ERR_PTR(-ENOMEM);
@@ -329,6 +330,7 @@ static int cv181x_cooling_remove(struct platform_device *pdev)
 
 static const struct of_device_id cv181x_cooling_match[] = {
 	{.compatible = "cvitek,cv181x-cooling"},
+	{.compatible = "sophgo,cooling"},
 	{},
 };
 MODULE_DEVICE_TABLE(of, cv181x_cooling_match);
