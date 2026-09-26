@@ -1594,6 +1594,99 @@ static BOOL cviCheckIdrValid(EncOpenParam *pEncOP, Uint32 frameIdx)
 			     FALSE;
 }
 
+static int avbrFwMaxQp(EncOpenParam *pEncOP, EncParam *encParam, stRcInfo *pRcInfo)
+{
+	int deltaQp = 0;
+	int maxQp = encParam->is_i_period ? pEncOP->userQpMaxI : pEncOP->userQpMaxP;
+
+	if (pRcInfo->rcMode == RC_MODE_AVBR)
+		deltaQp = cviEncRc_Avbr_GetQpDelta(pRcInfo, pEncOP);
+	return CLIP3(0, 51, maxQp + deltaQp);
+}
+
+/* WAVE4 H.265: one SET_PARAM (W4_CMD_ENC_RC_TARGET_RATE / MIN_MAX_QP).
+ * H.264 still uses Coda ENC_SET_BITRATE. Only issue when target or max QP
+ * actually changed; AVBR isMotionState used to SET_PARAM every rising
+ * motion frame and 1080p60 fell to ~30 fps. */
+static void issueFwRcChange(EncHandle handle, EncOpenParam *pEncOP,
+			     EncParam *encParam, stRcInfo *pRcInfo, BOOL fpsChanged)
+{
+	int newBr = pRcInfo->targetBitrate;
+	int maxQp = avbrFwMaxQp(pEncOP, encParam, pRcInfo);
+	int minQp = encParam->is_i_period ? pEncOP->userQpMinI : pEncOP->userQpMinP;
+	BOOL brChanged = (pRcInfo->lastFwTargetBitrate < 0) ||
+			 (pRcInfo->lastFwTargetBitrate != newBr);
+	BOOL qpChanged = (pRcInfo->lastFwMaxQp < 0) ||
+			 (pRcInfo->lastFwMaxQp != maxQp);
+
+	if (!brChanged && !qpChanged && !fpsChanged)
+		return;
+
+	if (pEncOP->bitstreamFormat == STD_HEVC) {
+		EncChangeParam changeParam;
+		EncHevcParam *param;
+		int intraQpOffsetForce0;
+
+		osal_memset(&changeParam, 0, sizeof(changeParam));
+		changeParam.changeParaMode = OPT_COMMON;
+		if (brChanged || fpsChanged) {
+			changeParam.enable_option |= ENC_RC_TRANS_RATE_CHANGE |
+						    ENC_RC_TARGET_RATE_CHANGE;
+			changeParam.bitRate = newBr;
+			changeParam.transRate =
+				((pEncOP->rcMode != RC_MODE_CBR &&
+				  pEncOP->rcMode != RC_MODE_QPMAP &&
+				  pEncOP->rcMode != RC_MODE_UBR) ||
+				 (pEncOP->statTime <= 0)) ?
+					      MAX_TRANSRATE :
+					      newBr * pEncOP->statTime * 1000;
+		}
+		if (fpsChanged) {
+			changeParam.enable_option |= ENC_FRAME_RATE_CHANGE;
+			changeParam.frameRate = pEncOP->frameRateInfo;
+		}
+		if (qpChanged) {
+			changeParam.enable_option |= ENC_RC_MIN_MAX_QP_CHANGE;
+			changeParam.maxQp = maxQp;
+			changeParam.minQp = CLIP3(0, 51, minQp);
+			changeParam.maxDeltaQp =
+				pEncOP->EncStdParam.hevcParam.maxDeltaQp;
+			intraQpOffsetForce0 =
+				(pRcInfo->periodMotionLvRaw > 64) ? 0 : -1;
+			changeParam.intraQpOffset =
+				(intraQpOffsetForce0 == 0) ?
+					      0 :
+					      pEncOP->EncStdParam.hevcParam.intraQpOffset;
+		}
+		if (pRcInfo->rcMode == RC_MODE_AVBR) {
+			param = &pEncOP->EncStdParam.hevcParam;
+			setInitRcQp(&changeParam, param, pEncOP,
+				    encParam->is_i_period ?
+						  pRcInfo->lastPicQp +
+							  (param->intraQpOffset / 2) :
+						  pRcInfo->lastPicQp);
+		}
+		if (changeParam.enable_option == 0)
+			return;
+		CVI_VC_INFO("WAVE4 SET_PARAM br=%d maxQp=%d fps=%d\n",
+			    newBr, maxQp, fpsChanged);
+		VPU_EncGiveCommand(handle, ENC_SET_PARA_CHANGE, &changeParam);
+	} else if (pEncOP->bitstreamFormat == STD_AVC) {
+		if (brChanged)
+			VPU_EncGiveCommand(handle, ENC_SET_BITRATE, &newBr);
+		if (qpChanged && pRcInfo->rcMode == RC_MODE_AVBR)
+			setMinMaxQpByDelta(handle, pEncOP,
+					   cviEncRc_Avbr_GetQpDelta(pRcInfo, pEncOP),
+					   encParam->is_i_period,
+					   (pRcInfo->periodMotionLvRaw > 64) ? 0 : -1);
+	} else {
+		return;
+	}
+
+	pRcInfo->lastFwTargetBitrate = newBr;
+	pRcInfo->lastFwMaxQp = maxQp;
+}
+
 static void cviSbmForcePopFrame(EncOpenParam *pEncOP, Uint32 frameIdx)
 {
 	int reg = 0;
@@ -1700,6 +1793,7 @@ static void cviPicParamChangeCtrl(EncHandle handle, TestEncConfig *pEncConfig,
 {
 	stRcInfo *pRcInfo = &handle->rcInfo;
 	BOOL rateChangeCmd = FALSE;
+	BOOL fpsChanged = FALSE;
 	// dynamic bitrate change
 	CVI_VC_TRACE("gopSize = %d, frameIdx = %d\n", pEncOP->gopSize,
 		     frameIdx);
@@ -1727,6 +1821,7 @@ static void cviPicParamChangeCtrl(EncHandle handle, TestEncConfig *pEncConfig,
 		cviEncRc_SetParam(pRcInfo, pEncOP, E_FRAMERATE);
 		cviEncRc_SetParam(&handle->rcInfo, pEncOP, E_BITRATE);
 		rateChangeCmd = TRUE;
+		fpsChanged = TRUE;
 
 		frameRateDiv = (pEncOP->frameRateInfo >> 16) + 1;
 		frameRateRes = pEncOP->frameRateInfo & 0xFFFF;
@@ -1746,52 +1841,11 @@ static void cviPicParamChangeCtrl(EncHandle handle, TestEncConfig *pEncConfig,
 		}
 	}
 
-	// bitrate/framerate change handle
-	if (rateChangeCmd) {
-		if (pEncOP->bitstreamFormat == STD_AVC) {
-			VPU_EncGiveCommand(handle, ENC_SET_BITRATE,
-					   &pRcInfo->targetBitrate);
-		} else if (pEncOP->bitstreamFormat == STD_HEVC) {
-			EncChangeParam changeParam;
-
-			changeParam.changeParaMode = OPT_COMMON;
-			changeParam.enable_option = ENC_RC_TRANS_RATE_CHANGE |
-						    ENC_RC_TARGET_RATE_CHANGE |
-						    ENC_FRAME_RATE_CHANGE;
-			changeParam.bitRate = handle->rcInfo.targetBitrate;
-			changeParam.transRate =
-				((pEncOP->rcMode != RC_MODE_CBR &&
-				  pEncOP->rcMode != RC_MODE_QPMAP &&
-				  pEncOP->rcMode != RC_MODE_UBR) ||
-				 (pEncOP->statTime <= 0)) ?
-					      MAX_TRANSRATE :
-					      handle->rcInfo.targetBitrate *
-						pEncOP->statTime * 1000;
-			changeParam.frameRate = pEncOP->frameRateInfo;
-
-			if (pRcInfo->rcMode == RC_MODE_AVBR) {
-				EncHevcParam *param =
-					&pEncOP->EncStdParam.hevcParam;
-				int initQp =
-					(encParam->is_i_period) ?
-						      pRcInfo->lastPicQp +
-							(param->intraQpOffset /
-							 2) :
-						      pRcInfo->lastPicQp;
-				setInitRcQp(&changeParam, param, pEncOP,
-					    initQp);
-			}
-
-			CVI_VC_TRACE("bitRate = %d, transRate = %d\n",
-				     changeParam.bitRate,
-				     changeParam.transRate);
-			CVI_VC_INFO(
-				"bitRate = %d, transRate = %d, frameRate = %d\n",
-				changeParam.bitRate, changeParam.transRate,
-				changeParam.frameRate);
-			VPU_EncGiveCommand(handle, ENC_SET_PARA_CHANGE,
-					   &changeParam);
-		}
+	// WAVE4 SET_PARAM / Coda ENC_SET_BITRATE only when target or max QP changed
+	if (rateChangeCmd || (pRcInfo->rcMode == RC_MODE_AVBR &&
+			      pRcInfo->avbrChangeBrEn)) {
+		issueFwRcChange(handle, pEncOP, encParam, pRcInfo, fpsChanged);
+		pRcInfo->avbrChangeBrEn = FALSE;
 	}
 
 	// auto frame-skipping
@@ -1817,30 +1871,6 @@ static void cviPicParamChangeCtrl(EncHandle handle, TestEncConfig *pEncConfig,
 	pRcInfo->resetCtuLevelRC = 0;
 
 	CVI_VC_TRACE("skipPicture = %d\n", encParam->skipPicture);
-
-	// TBD: scene change detect signal generate
-	/*if(cviEncRc_StateCheck(&handle->rcInfo, FALSE)) {
-		int deltaQp = (handle->rcInfo.rcState==UNSTABLE)
-			? 2
-			: (handle->rcInfo.rcState==RECOVERY)
-			? -1 : 0;
-		setMinMaxQpByDelta(handle, encOP, deltaQp\);
-	}*/
-
-	// avbr adaptive max Qp
-	if (pRcInfo->rcEnable && pRcInfo->rcMode == RC_MODE_AVBR) {
-		if (pRcInfo->avbrChangeBrEn == TRUE) {
-			int deltaQp = cviEncRc_Avbr_GetQpDelta(pRcInfo, pEncOP);
-			int intraQpOffsetForce0 =
-				(pRcInfo->periodMotionLvRaw > 64) ? 0 : -1;
-			CVI_VC_INFO("avbr qp delta: %d %d\n", deltaQp,
-				    encParam->is_i_period);
-			setMinMaxQpByDelta(handle, pEncOP, deltaQp,
-					   encParam->is_i_period,
-					   intraQpOffsetForce0);
-			pRcInfo->avbrChangeBrEn = FALSE;
-		}
-	}
 }
 
 // this is chip-and-media legacy code, not in used now

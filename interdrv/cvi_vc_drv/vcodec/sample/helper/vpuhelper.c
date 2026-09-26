@@ -5,6 +5,8 @@
 //------------------------------------------------------------------------------
 #include "main_helper.h"
 
+extern bool cviRcEn;
+
 #ifdef PLATFORM_WIN32
 #pragma warning(disable : 4996)
 	//!<< disable waring C4996: The POSIX name for
@@ -1809,7 +1811,7 @@ Int32 GetEncOpenParamDefault(EncOpenParam *pEncOP, TestEncConfig *pEncConfig)
 	pEncOP->rcIntraQp = -1; // disable == -1
 	pEncOP->userQpMax = -1; // disable == -1
 
-	pCviEc->cviRcEn = 1;
+	pCviEc->cviRcEn = (bitFormat == STD_HEVC) ? 0 : cviRcEn;
 
 	pEncOP->cviRcEn = pCviEc->cviRcEn;
 	CVI_VC_CFG("cviRcEn = %d\n", pCviEc->cviRcEn);
