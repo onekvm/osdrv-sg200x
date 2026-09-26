@@ -1319,7 +1319,7 @@ int vo_create_thread(struct cvi_vo_dev *vdev, enum E_VO_TH th_id)
 		CVI_TRACE_VO(CVI_DBG_ERR, "_vo_create_thread fail\n");
 		return -1;
 	}
-	param.sched_priority = MAX_USER_RT_PRIO - 10;
+	param.sched_priority = MAX_RT_PRIO - 10;
 
 	if (vdev->vo_th[th_id].w_thread == NULL) {
 		switch (th_id) {

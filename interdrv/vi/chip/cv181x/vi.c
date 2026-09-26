@@ -4643,7 +4643,7 @@ int vi_create_thread(struct cvi_vi_dev *vdev, enum E_VI_TH th_id)
 		return -1;
 	}
 
-	param.sched_priority = MAX_USER_RT_PRIO - 10;
+	param.sched_priority = MAX_RT_PRIO - 10;
 
 	if (vdev->vi_th[th_id].w_thread == NULL) {
 		switch (th_id) {
