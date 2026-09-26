@@ -2,6 +2,7 @@
 #define _DWA_DEBUG_H_
 
 #include <linux/debugfs.h>
+#include <cvi_mmf_log.h>
 
 extern u32 dwa_log_lv;
 
@@ -13,7 +14,7 @@ extern u32 dwa_log_lv;
 
 #define CVI_TRACE_DWA(level, fmt, ...) \
 	do { \
-		if (level <= dwa_log_lv) { \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_DWA, level)) { \
 			if (level == CVI_DBG_ERR) \
 				pr_err("%s:%d(): " fmt, __func__, __LINE__, ##__VA_ARGS__); \
 			else if (level == CVI_DBG_WARN) \

@@ -25,6 +25,8 @@
 #include "vb.h"
 #include "cvi_vb_proc.h"
 #include "cvi_log_proc.h"
+int cvi_mmf_log_configfs_init(void);
+void cvi_mmf_log_configfs_exit(void);
 #include "cvi_sys_proc.h"
 #include <linux/cvi_base_ctx.h>
 #include <linux/semaphore.h>
@@ -967,6 +969,13 @@ static int __init base_init(void)
 	}
 
 	rc = platform_driver_register(&base_driver);
+	if (rc)
+		goto cleanup;
+	rc = cvi_mmf_log_configfs_init();
+	if (rc) {
+		platform_driver_unregister(&base_driver);
+		goto cleanup;
+	}
 	chip_id = cvi_base_read_chip_id();
 	pr_notice("CVITEK CHIP ID = %d\n", chip_id);
 
@@ -987,6 +996,7 @@ cleanup:
 
 static void __exit base_exit(void)
 {
+	cvi_mmf_log_configfs_exit();
 	platform_driver_unregister(&base_driver);
 	vb_cleanup();
 	base_cleanup();

@@ -196,10 +196,11 @@ extern pthread_t gs_VencTask[VENC_MAX_CHN_NUM];
 	CVI_TRACE(level, CVI_ID_VENC, "%s:%d:%s(): " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__)
 
 #else
+#include <cvi_mmf_log.h>
 #ifndef VC_DEBUG_BASIC_LEVEL
 #define CVI_VENC_DEBUG(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_DEBUG) { \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) { \
 			struct timespec64 ts;	\
 			ktime_get_ts64(&ts);	\
 			pr_info("[DEBUG][%llu] %s = %d," msg, ts.tv_sec * 1000 + ts.tv_nsec / 1000000, __func__, \
@@ -208,98 +209,101 @@ extern pthread_t gs_VencTask[VENC_MAX_CHN_NUM];
 	} while (0)
 #define CVI_VENC_ERR(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_ERR) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 1)) \
 		pr_err("[ERR] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 #define CVI_VENC_WARN(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_WARN) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 2)) \
 		pr_warn("[WARN] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 
 #define CVI_VENC_BS(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_BS) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
 		pr_notice("[BS] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 #define CVI_VENC_SRC(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_SRC) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
 		pr_notice("[SRC] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 #define CVI_VENC_PERF(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_PERF) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
 		pr_notice("[PERF] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 #define CVI_VENC_CFG(msg, ...)	\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_CFG) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
 		pr_notice("[CFG] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 #define CVI_VENC_FRC(msg, ...)	\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_FRC) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
 		pr_notice("[FRC] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 #define CVI_VENC_BIND(msg, ...)	\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_BIND) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
 		pr_notice("[BIND] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 
 #define CVI_VENC_INFO(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_INFO) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 4)) \
 		pr_info("[INFO] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 #define CVI_VENC_FLOW(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_FLOW) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
 		pr_info("[FLOW] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 #define CVI_VENC_API(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_API) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
 		pr_info("[API] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 
 #define CVI_VENC_DBG(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_DBG) \
-		pr_debug("[DBG] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
+		printk(KERN_DEBUG "[DBG] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 #define CVI_VENC_SYNC(msg, ...)	\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_SYNC) \
-		pr_debug("[SYNC] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
+		printk(KERN_DEBUG "[SYNC] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 #define CVI_VENC_TRACE(msg, ...)	\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_TRACE) \
-		pr_debug("[TRACE] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
+		printk(KERN_DEBUG "[TRACE] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 
 #define CVI_VENC_DUMP_YUV(msg, ...)	\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_DUMP_YUV) \
-		pr_debug("[YUV] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
+		printk(KERN_DEBUG "[YUV] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 
 #define CVI_VENC_DUMP_BS(msg, ...)	\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_DUMP_BS) \
-		pr_debug("[BS] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) \
+		printk(KERN_DEBUG "[BS] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 
 
 #define CVI_TRACE_VENC(level, fmt, ...)                                           \
-	pr_debug("%s:%d:%s(): " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__)
+	do { \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, level)) \
+			printk(KERN_DEBUG "%s:%d:%s(): " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__); \
+	} while (0)
 
 #else
 #define CVI_VENC_DEBUG(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_DEBUG) { \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 5)) { \
 			struct timespec64 ts;	\
 			ktime_get_ts64(&ts);	\
 			pr_info("[DEBUG][%llu] %s = %d," msg, ts.tv_sec * 1000 + ts.tv_nsec / 1000000, __func__, \
@@ -308,12 +312,12 @@ extern pthread_t gs_VencTask[VENC_MAX_CHN_NUM];
 	} while (0)
 #define CVI_VENC_ERR(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_ERR) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 1)) \
 		pr_err("[ERR] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 #define CVI_VENC_WARN(msg, ...)		\
 	do { \
-		if (vencDbg.currMask & CVI_VENC_MASK_WARN) \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VENC, 2)) \
 		pr_warn("[WARN] %s = %d, "msg, __func__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 

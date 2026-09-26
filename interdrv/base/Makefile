@@ -4,7 +4,8 @@ soph_base-objs = base.o \
 				chip/$(CVIARCH_L)/vip_sys.o \
 				reg.o \
 				cvi_vb_proc.o \
-				cvi_log_proc.o \
+			cvi_log_proc.o \
+			cvi_mmf_log_configfs.o \
 				cvi_sys_proc.o \
 				base_context.o \
 				vb.o
