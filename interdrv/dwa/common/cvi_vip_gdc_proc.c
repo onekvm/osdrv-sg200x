@@ -1,3 +1,5 @@
+#include <generated/utsversion.h>
+
 #include "cvi_vip_gdc_proc.h"
 
 #define GENERATE_STRING(STRING)	(#STRING),

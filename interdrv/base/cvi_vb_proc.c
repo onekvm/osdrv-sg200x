@@ -1,5 +1,6 @@
 #include "cvi_vb_proc.h"
 #include "sys.h"
+#include <generated/utsversion.h>
 
 #define VB_PROC_NAME			"vb"
 #define VB_PROC_PERMS			(0644)

@@ -497,7 +497,7 @@ static int __init wgn_init(void)
 {
 	int rc;
 
-	wiegand_class = class_create(THIS_MODULE, CVI_WIEGAND_CLASS_NAME);
+	wiegand_class = CVI_CLASS_CREATE(CVI_WIEGAND_CLASS_NAME);
 	if (IS_ERR(wiegand_class)) {
 		pr_err("create class failed\n");
 		return PTR_ERR(wiegand_class);

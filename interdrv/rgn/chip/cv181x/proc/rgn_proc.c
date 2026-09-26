@@ -1,3 +1,5 @@
+#include <generated/utsversion.h>
+
 #include "rgn_proc.h"
 
 #define GENERATE_STRING(STRING)	(#STRING),

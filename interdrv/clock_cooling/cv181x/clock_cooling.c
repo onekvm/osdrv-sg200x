@@ -327,6 +327,7 @@ static int cv181x_cooling_remove(struct platform_device *pdev)
 
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(cv181x_cooling_remove);
 
 static const struct of_device_id cv181x_cooling_match[] = {
 	{.compatible = "cvitek,cv181x-cooling"},
@@ -341,7 +342,7 @@ static struct platform_driver cv181x_cooling_driver = {
 		.of_match_table = of_match_ptr(cv181x_cooling_match),
 	},
 	.probe = cv181x_cooling_probe,
-	.remove = cv181x_cooling_remove,
+	.remove = CVI_PLATFORM_REMOVE_CALLBACK(cv181x_cooling_remove),
 };
 
 module_platform_driver(cv181x_cooling_driver);

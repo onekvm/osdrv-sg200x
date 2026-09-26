@@ -432,7 +432,7 @@ int cvi_mon_register_cdev(struct cvi_mon_device *ndev)
 {
 	int ret;
 
-	mon_class = class_create(THIS_MODULE, CVI_MON_CLASS_NAME);
+	mon_class = CVI_CLASS_CREATE(CVI_MON_CLASS_NAME);
 	if (IS_ERR(mon_class)) {
 		pr_err("create mon class failed\n");
 		return PTR_ERR(mon_class);
@@ -591,4 +591,3 @@ module_platform_driver(cvi_mon_driver);
 MODULE_AUTHOR("Wellken Chen<wellken.chen@cvitek.com.tw>");
 MODULE_DESCRIPTION("Cvitek SoC MON driver");
 MODULE_LICENSE("GPL");
-

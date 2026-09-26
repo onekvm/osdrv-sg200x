@@ -82,7 +82,7 @@ struct cvi_gdc_mesh g_vi_mesh[VI_MAX_CHN_NUM];
 #if (KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE)
 static void legacy_timer_emu_func(struct timer_list *t)
 {
-	struct legacy_timer_emu *lt = from_timer(lt, t, t);
+	struct legacy_timer_emu *lt = container_of(t, struct legacy_timer_emu, t);
 
 	lt->function(lt->data);
 }
@@ -2155,11 +2155,11 @@ void usr_pic_time_remove(void)
 {
 #if (KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE)
 	if (timer_pending(&usr_pic_timer.t)) {
-		del_timer_sync(&usr_pic_timer.t);
+		timer_delete_sync(&usr_pic_timer.t);
 		timer_setup(&usr_pic_timer.t, legacy_timer_emu_func, 0);
 #else
 	if (timer_pending(&usr_pic_timer)) {
-		del_timer_sync(&usr_pic_timer);
+		timer_delete_sync(&usr_pic_timer);
 		init_timer(&usr_pic_timer);
 #endif
 	}

@@ -1,5 +1,6 @@
 #include <proc/vo_mipi_tx_proc.h>
 #include <linux/version.h>
+#include <generated/utsversion.h>
 
 #define MIPI_TX_PROC_NAME "cvitek/mipi_tx"
 #define MIPI_TX_PROC_MEM_SIZE sizeof(struct combo_dev_cfg_s)
@@ -157,4 +158,3 @@ int mipi_tx_proc_remove(void)
 
 	return 0;
 }
-

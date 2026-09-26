@@ -101,7 +101,7 @@ static int vi_core_register_cdev(struct cvi_vi_dev *dev)
 	struct device *dev_t;
 	int err = 0;
 
-	dev->vi_class = class_create(THIS_MODULE, CVI_VI_CLASS_NAME);
+	dev->vi_class = CVI_CLASS_CREATE(CVI_VI_CLASS_NAME);
 	if (IS_ERR(dev->vi_class)) {
 		dev_err(dev->dev, "create class failed\n");
 		return PTR_ERR(dev->vi_class);
@@ -282,6 +282,7 @@ err_destroy_instance:
 
 	return ret;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(vi_core_remove);
 
 #ifdef CONFIG_PM_SLEEP
 static int vi_pm_suspend(struct device *dev)
@@ -320,7 +321,7 @@ MODULE_DEVICE_TABLE(of, vi_core_match);
 
 static struct platform_driver vi_core_driver = {
 	.probe = vi_core_probe,
-	.remove = vi_core_remove,
+	.remove = CVI_PLATFORM_REMOVE_CALLBACK(vi_core_remove),
 	.driver = {
 		.name = CVI_VI_DEV_NAME,
 		.of_match_table = vi_core_match,

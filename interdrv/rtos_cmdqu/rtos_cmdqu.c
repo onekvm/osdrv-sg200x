@@ -648,7 +648,7 @@ static int cvi_rtos_cmdqu_init(void)
 {
 	int rc;
 	pr_debug("cvi_rtos_cmdqu_init");
-	pbase_class = class_create(THIS_MODULE, RTOS_CMDQU_DEV_NAME);
+	pbase_class = CVI_CLASS_CREATE(RTOS_CMDQU_DEV_NAME);
 	if (IS_ERR(pbase_class)) {
 		pr_err("create class failed\n");
 		rc = PTR_ERR(pbase_class);

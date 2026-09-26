@@ -4,12 +4,14 @@
 #include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/of_gpio.h>
+#include <dt-bindings/gpio/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/iommu.h>
 #include <linux/irq.h>
 #include <linux/reset.h>
 #include <generated/compile.h>
+#include <generated/utsversion.h>
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/cvi_defines.h>
@@ -59,6 +61,29 @@
 
 #define MIPI_RX_DEV_NAME "cvi-mipi-rx"
 #define MAX_CIF_PROC_BUF 32
+
+static int cvi_of_get_named_gpio_flags(const struct device_node *np,
+		const char *propname, int index, unsigned int *flags)
+{
+	struct of_phandle_args gpiospec;
+	int gpio;
+	int ret;
+
+	gpio = of_get_named_gpio(np, propname, index);
+	if (gpio < 0)
+		return gpio;
+
+	*flags = 0;
+	ret = of_parse_phandle_with_args(np, propname, "#gpio-cells", index,
+					 &gpiospec);
+	if (!ret) {
+		if (gpiospec.args_count)
+			*flags = gpiospec.args[gpiospec.args_count - 1];
+		of_node_put(gpiospec.np);
+	}
+
+	return gpio;
+}
 
 enum {
 	LANE_SKEW_CROSS_CLK,
@@ -2378,7 +2403,7 @@ static int cif_reset_snsr_gpio(struct cvi_cif_dev *dev,
 		return -EINVAL;
 
 	link = &dev->link[devno];
-	reset = (link->snsr_rst_pol == OF_GPIO_ACTIVE_LOW) ? 0 : 1;
+	reset = (link->snsr_rst_pol & GPIO_ACTIVE_LOW) ? 0 : 1;
 
 	if (!gpio_is_valid(link->snsr_rst_pin))
 		return 0;
@@ -2939,7 +2964,7 @@ static int _init_resource(struct platform_device *pdev)
 		link = &dev->link[i];
 		link->dev = &pdev->dev;
 		link->mac_clk = RX_MAC_CLK_400M;
-		link->snsr_rst_pin = of_get_named_gpio_flags(pdev->dev.of_node,
+		link->snsr_rst_pin = cvi_of_get_named_gpio_flags(pdev->dev.of_node,
 				"snsr-reset", i, &link->snsr_rst_pol);
 		if (link->snsr_rst_pin < 0)
 			break;
@@ -3214,7 +3239,7 @@ static int dbg_hdler(struct cvi_cif_dev *dev, char const *input)
 		link = &dev->link[a];
 		ctx = &link->cif_ctx;
 
-		reset = (link->snsr_rst_pol == OF_GPIO_ACTIVE_LOW) ? 0 : 1;
+		reset = (link->snsr_rst_pol & GPIO_ACTIVE_LOW) ? 0 : 1;
 
 		if (!gpio_is_valid(link->snsr_rst_pin))
 			return 0;
@@ -3268,7 +3293,7 @@ static int dbg_hdler(struct cvi_cif_dev *dev, char const *input)
 
 static ssize_t cif_proc_write(struct file *file, const char __user *user_buf, size_t count, loff_t *ppos)
 {
-	struct cvi_cif_dev *dev = PDE_DATA(file_inode(file));
+	struct cvi_cif_dev *dev = pde_data(file_inode(file));
 #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
 	char txt_buff[MAX_CIF_PROC_BUF];
 
@@ -3286,7 +3311,7 @@ static ssize_t cif_proc_write(struct file *file, const char __user *user_buf, si
 
 static int proc_cif_open(struct inode *inode, struct file *file)
 {
-	struct cvi_cif_dev *dev = PDE_DATA(inode);
+	struct cvi_cif_dev *dev = pde_data(inode);
 
 	return single_open(file, proc_cif_show, dev);
 }
@@ -3377,6 +3402,7 @@ static int cvi_cif_remove(struct platform_device *pdev)
 #endif
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(cvi_cif_remove);
 
 #ifdef CONFIG_PM_SLEEP
 void sensor_i2c_write(struct isp_i2c_data *i2c_data, unsigned short reg_addr, unsigned short data)
@@ -3513,7 +3539,7 @@ static struct platform_device cvi_cif_pdev = {
 
 static struct platform_driver cvi_cif_pdrv = {
 	.probe      = cvi_cif_probe,
-	.remove     = cvi_cif_remove,
+	.remove     = CVI_PLATFORM_REMOVE_CALLBACK(cvi_cif_remove),
 	.driver     = {
 		.name		= "cif",
 		.owner		= THIS_MODULE,

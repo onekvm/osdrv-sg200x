@@ -27,6 +27,7 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/streamline_annotate.h>
 #include <linux/version.h>
+#include <linux/vmalloc.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
 #include <linux/sched/signal.h>
 #endif
@@ -58,7 +59,7 @@
 #define MJPEG_PIC_STATUS_REG 0x4
 #define MJPEG_INTR_MASK_REG  0x0C0
 
-static DEFINE_SEMAPHORE(s_jpu_sem);
+static CVI_DEFINE_SEMAPHORE(s_jpu_sem);
 
 int jpu_mask = JPU_MASK_ERR;
 module_param(jpu_mask, int, 0644);
@@ -509,7 +510,7 @@ static int cvi_jpu_register_cdev(struct cvi_jpu_device *jdev)
 {
 	int err = 0;
 
-	jdev->jpu_class = class_create(THIS_MODULE, JPU_CLASS_NAME);
+	jdev->jpu_class = CVI_CLASS_CREATE(JPU_CLASS_NAME);
 	if (IS_ERR(jdev->jpu_class)) {
 		pr_err("create class failed\n");
 		return PTR_ERR(jdev->jpu_class);
@@ -616,6 +617,7 @@ static int jpu_remove(struct platform_device *pdev)
 
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(jpu_remove);
 
 static void cvi_jpu_unregister_cdev(struct platform_device *pdev)
 {
@@ -660,7 +662,7 @@ static struct platform_driver jpu_driver = {
 		.of_match_table = cvi_jpu_match_table,
 	},
 	.probe    = jpu_probe,
-	.remove   = jpu_remove,
+	.remove   = CVI_PLATFORM_REMOVE_CALLBACK(jpu_remove),
 #ifdef CONFIG_PM
 	.suspend  = jpu_suspend,
 	.resume   = jpu_resume,

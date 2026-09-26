@@ -343,7 +343,7 @@ int cvi_saradc_register_cdev(struct cvi_saradc_device *ndev)
 	int ret;
 	int rc;
 
-	saradc_class = class_create(THIS_MODULE, CVI_SARADC_CLASS_NAME);
+	saradc_class = CVI_CLASS_CREATE(CVI_SARADC_CLASS_NAME);
 	if (IS_ERR(saradc_class)) {
 		pr_err("create class failed\n");
 		return PTR_ERR(saradc_class);

@@ -446,6 +446,7 @@ static int cvi_snsr_i2c_remove(struct platform_device *pdev)
 
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(cvi_snsr_i2c_remove);
 
 static void cvi_snsr_i2c_pdev_release(struct device *dev)
 {
@@ -459,7 +460,7 @@ static struct platform_device cvi_snsr_i2c_pdev = {
 
 static struct platform_driver cvi_snsr_i2c_pdrv = {
 	.probe      = cvi_snsr_i2c_probe,
-	.remove     = cvi_snsr_i2c_remove,
+	.remove     = CVI_PLATFORM_REMOVE_CALLBACK(cvi_snsr_i2c_remove),
 	.driver     = {
 		.name		= "snsr_i2c",
 		.owner		= THIS_MODULE,

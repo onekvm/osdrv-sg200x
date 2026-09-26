@@ -1,6 +1,7 @@
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
+#include <generated/utsversion.h>
 
 #include <linux/cvi_vip.h>
 

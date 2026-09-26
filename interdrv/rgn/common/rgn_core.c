@@ -131,6 +131,7 @@ err_destroy_instance:
 
 	return ret;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(cvi_rgn_remove);
 
 static const struct of_device_id cvi_rgn_dt_match[] = {
 	{.compatible = "cvitek,rgn"},
@@ -141,7 +142,7 @@ MODULE_DEVICE_TABLE(of, cvi_rgn_dt_match);
 
 static struct platform_driver rgn_core_driver = {
 	.probe = cvi_rgn_probe,
-	.remove = cvi_rgn_remove,
+	.remove = CVI_PLATFORM_REMOVE_CALLBACK(cvi_rgn_remove),
 	.driver = {
 		.name = CVI_RGN_DEV_NAME,
 		.of_match_table = cvi_rgn_dt_match,

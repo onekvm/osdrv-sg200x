@@ -126,7 +126,7 @@ static spinlock_t s_vpu_lock = __SPIN_LOCK_UNLOCKED(s_vpu_lock);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 36)
 static DECLARE_MUTEX(s_vpu_sem);
 #else
-static DEFINE_SEMAPHORE(s_vpu_sem);
+static CVI_DEFINE_SEMAPHORE(s_vpu_sem);
 #endif
 static struct list_head s_vbp_head = LIST_HEAD_INIT(s_vbp_head);
 static struct list_head s_inst_list_head = LIST_HEAD_INIT(s_inst_list_head);
@@ -1402,7 +1402,7 @@ static int cvi_vcodec_register_cdev(struct cvi_vpu_device *vdev)
 {
 	int err = 0;
 
-	vdev->vpu_class = class_create(THIS_MODULE, VPU_CLASS_NAME);
+	vdev->vpu_class = CVI_CLASS_CREATE(VPU_CLASS_NAME);
 	if (IS_ERR(vdev->vpu_class)) {
 		VCODEC_DBG_ERR("create class failed\n");
 		return PTR_ERR(vdev->vpu_class);
@@ -1610,6 +1610,7 @@ static int vpu_remove(struct platform_device *pdev)
 
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(vpu_remove);
 
 struct mutex vcodec_mutex;
 
@@ -1951,7 +1952,7 @@ static struct platform_driver vpu_driver = {
 		.of_match_table = cvi_vpu_match_table,
 	},
 	.probe = vpu_probe,
-	.remove = vpu_remove,
+	.remove = CVI_PLATFORM_REMOVE_CALLBACK(vpu_remove),
 	.suspend = vpu_suspend,
 	.resume = vpu_resume,
 };

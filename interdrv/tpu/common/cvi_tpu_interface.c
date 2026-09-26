@@ -37,6 +37,7 @@
 #include <asm/cacheflush.h>
 #include <linux/of.h>
 #include <linux/version.h>
+#include <linux/vmalloc.h>
 #if (KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE)
 #include <linux/sched/signal.h>
 #endif
@@ -128,7 +129,7 @@ static _timer profile_timer;
 #if (KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE)
 static void legacy_timer_emu_func(struct timer_list *t)
 {
-	struct legacy_timer_emu *lt = from_timer(lt, t, t);
+	struct legacy_timer_emu *lt = container_of(t, struct legacy_timer_emu, t);
 
 	lt->function(lt->data);
 }
@@ -190,11 +191,11 @@ static void tpu_profile_timer_remove(void)
 {
 #if (KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE)
 	if (timer_pending(&profile_timer.t)) {
-		del_timer_sync(&profile_timer.t);
+		timer_delete_sync(&profile_timer.t);
 		timer_setup(&profile_timer.t, legacy_timer_emu_func, 0);
 #else
 	if (timer_pending(&profile_timer)) {
-		del_timer_sync(&profile_timer);
+		timer_delete_sync(&profile_timer);
 		init_timer(&profile_timer);
 #endif
 	}
@@ -968,7 +969,8 @@ static int cvi_tpu_cache_flush(struct cvi_tpu_device *ndev, unsigned long arg)
 		return ret;
 	}
 #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE) && defined(__riscv)
-	arch_sync_dma_for_device(flush_arg.paddr, flush_arg.size, DMA_TO_DEVICE);
+	dma_sync_single_for_device(ndev->dev, flush_arg.paddr,
+				   flush_arg.size, DMA_TO_DEVICE);
 #else
 	__dma_map_area(phys_to_virt(flush_arg.paddr), flush_arg.size, DMA_TO_DEVICE);
 #endif
@@ -989,7 +991,8 @@ static int cvi_tpu_cache_invalidate(struct cvi_tpu_device *ndev,
 		return ret;
 	}
 #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE) && defined(__riscv)
-	arch_sync_dma_for_device(invalidate_arg.paddr, invalidate_arg.size, DMA_FROM_DEVICE);
+	dma_sync_single_for_device(ndev->dev, invalidate_arg.paddr,
+				   invalidate_arg.size, DMA_FROM_DEVICE);
 #else
 	__dma_map_area(phys_to_virt(invalidate_arg.paddr), invalidate_arg.size, DMA_FROM_DEVICE);
 #endif
@@ -1117,7 +1120,7 @@ int cvi_tpu_register_cdev(struct cvi_tpu_device *ndev)
 {
 	int ret;
 
-	npu_class = class_create(THIS_MODULE, CVI_TPU_CLASS_NAME);
+	npu_class = CVI_CLASS_CREATE(CVI_TPU_CLASS_NAME);
 	if (IS_ERR(npu_class)) {
 		pr_err("create class failed\n");
 		return PTR_ERR(npu_class);
@@ -1277,6 +1280,7 @@ static int cvi_tpu_remove(struct platform_device *pdev)
 	proc_remove(tpu_proc_dir);
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(cvi_tpu_remove);
 
 #ifdef CONFIG_PM_SLEEP
 static int cvi_tpu_suspend(struct device *dev)
@@ -1314,7 +1318,7 @@ MODULE_DEVICE_TABLE(of, cvi_tpu_match);
 
 static struct platform_driver cvi_tpu_driver = {
 	.probe = cvi_tpu_probe,
-	.remove = cvi_tpu_remove,
+	.remove = CVI_PLATFORM_REMOVE_CALLBACK(cvi_tpu_remove),
 	.driver = {
 			.owner = THIS_MODULE,
 			.name = "cvi-tpu",
@@ -1327,3 +1331,4 @@ module_platform_driver(cvi_tpu_driver);
 MODULE_AUTHOR("Wellken Chen<wellken.chen@cvitek.com.tw>");
 MODULE_DESCRIPTION("Cvitek SoC TPU driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS("DMA_BUF");

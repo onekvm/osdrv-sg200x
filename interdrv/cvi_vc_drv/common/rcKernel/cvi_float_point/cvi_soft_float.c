@@ -801,7 +801,7 @@ sw_float cvi_float32_mul(struct roundingData *roundData, sw_float a, sw_float b)
 	return roundAndPackFloat32(roundData, zSign, zExp, zSig);
 }
 
-static CVI_U32 do_div(bits64 *n, bits32 base)
+static CVI_U32 cvi_do_div(bits64 *n, bits32 base)
 {
 	CVI_U64 rem = *n;
 	CVI_U64 b = base;
@@ -898,7 +898,7 @@ sw_float cvi_float32_div(struct roundingData *roundData, sw_float a, sw_float b)
 	}
 	{
 		bits64 tmp = ((bits64)aSig) << 32;
-		do_div(&tmp, bSig);
+		cvi_do_div(&tmp, bSig);
 		zSig = tmp;
 	}
 	if ((zSig & 0x3F) == 0) {
@@ -1212,7 +1212,7 @@ static bits32 estimateSqrt32(CVI_S16 aExp, bits32 a)
 			return (bits32)(((sbits32)a) >> 1);
 	}
 	A = ((bits64)a) << 31;
-	do_div(&A, z);
+	cvi_do_div(&A, z);
 	return ((bits32)A) + (z >> 1);
 }
 

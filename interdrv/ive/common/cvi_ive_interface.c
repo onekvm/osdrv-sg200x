@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/sysfs.h>
 #include <linux/version.h>
+#include <linux/vmalloc.h>
 #include <linux/compat.h>
 #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
 #include <linux/sched/signal.h>
@@ -814,7 +815,7 @@ int cvi_ive_register_cdev(struct cvi_ive_device *ndev)
 {
 	int ret;
 	// Create device to /sys/class/
-	class_id = class_create(THIS_MODULE, CVI_IVE_CLASS_NAME);
+	class_id = CVI_CLASS_CREATE(CVI_IVE_CLASS_NAME);
 	if (IS_ERR(class_id)) {
 		pr_err("[IVE] create class failed\n");
 		return PTR_ERR(class_id);
@@ -931,6 +932,7 @@ static int cvi_ive_remove(struct platform_device *pdev)
 	proc_remove(ndev->proc_dir);
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(cvi_ive_remove);
 
 #ifdef CONFIG_PM_SLEEP
 static int cvi_ive_suspend(struct device *dev)
@@ -958,7 +960,7 @@ MODULE_DEVICE_TABLE(of, cvi_ive_match);
 
 static struct platform_driver cvi_ive_driver = {
 	.probe = cvi_ive_probe,
-	.remove = cvi_ive_remove,
+	.remove = CVI_PLATFORM_REMOVE_CALLBACK(cvi_ive_remove),
 	.driver = {
 			.owner = THIS_MODULE,
 			.name = CVI_IVE_CDEV_NAME,

@@ -4,6 +4,7 @@
 #include <linux/poll.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/sys.h>
+#include <linux/gpio.h>
 #include <linux/of_gpio.h>
 
 #include <linux/cvi_base.h>
@@ -248,13 +249,13 @@ static void _disp_sel_pinmux(enum cvi_disp_intf intf_type, void *param)
 
 void _disp_ctrlpin_set(unsigned int gpio_num, enum GPIO_ACTIVE_E active)
 {
-	enum of_gpio_flags flags;
+	unsigned long flags;
 	static int count;
 	char name[16] = "";
 	int rc = 0;
 
 	if (gpio_is_valid(gpio_num)) {
-		flags = GPIOF_DIR_OUT | (active ? GPIOF_INIT_HIGH : GPIOF_INIT_LOW);
+		flags = active ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
 		snprintf(name, sizeof(name), "disp_ctrl_pin_%d", count++);
 		rc = devm_gpio_request_one(&g_pdev->dev, gpio_num, flags, name);
 		if (rc) {
@@ -267,11 +268,11 @@ void _disp_ctrlpin_set(unsigned int gpio_num, enum GPIO_ACTIVE_E active)
 
 static void _disp_resetpin_set(unsigned int gpio_num, enum GPIO_ACTIVE_E active)
 {
-	enum of_gpio_flags flags;
+	unsigned long flags;
 	int rc = 0;
 
 	if (gpio_is_valid(gpio_num)) {
-		flags = GPIOF_DIR_OUT | (active ? GPIOF_INIT_HIGH : GPIOF_INIT_LOW);
+		flags = active ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
 		rc = devm_gpio_request_one(&g_pdev->dev, gpio_num, flags, NULL);
 		if (rc) {
 			CVI_TRACE_VO(CVI_DBG_ERR, "reset gpio_num(%d) failed\n",  gpio_num);

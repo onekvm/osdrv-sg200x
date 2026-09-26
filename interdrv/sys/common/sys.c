@@ -36,6 +36,7 @@ struct cvi_sys_device {
 };
 
 static struct base_m_cb_info *sys_m_cb;
+static struct device *sys_dma_dev;
 
 #ifdef DRV_TEST
 extern CVI_S32 sys_test_proc_init(void);
@@ -382,7 +383,8 @@ EXPORT_SYMBOL_GPL(sys_ion_get_memory_state);
 
 CVI_S32 sys_cache_invalidate(CVI_U64 addr_p, void *addr_v, CVI_U32 u32Len)
 {
-	arch_sync_dma_for_device(addr_p, u32Len, DMA_FROM_DEVICE);
+	dma_sync_single_for_device(sys_dma_dev, (dma_addr_t)addr_p, u32Len,
+				   DMA_FROM_DEVICE);
 
 	/*	*/
 	smp_mb();
@@ -392,7 +394,8 @@ EXPORT_SYMBOL_GPL(sys_cache_invalidate);
 
 CVI_S32 sys_cache_flush(CVI_U64 addr_p, void *addr_v, CVI_U32 u32Len)
 {
-	arch_sync_dma_for_device(addr_p, u32Len, DMA_TO_DEVICE);
+	dma_sync_single_for_device(sys_dma_dev, (dma_addr_t)addr_p, u32Len,
+				   DMA_TO_DEVICE);
 
 	/*  */
 	smp_mb();
@@ -412,9 +415,13 @@ static CVI_S32 sys_cache_op_userv(unsigned long arg, enum enum_cache_op op_code)
 	}
 
 	if (op_code == enum_cache_op_invalid)
-		arch_sync_dma_for_device(ioctl_arg.addr_p, ioctl_arg.size, DMA_FROM_DEVICE);
+		dma_sync_single_for_device(sys_dma_dev,
+					   (dma_addr_t)ioctl_arg.addr_p,
+					   ioctl_arg.size, DMA_FROM_DEVICE);
 	else if (op_code == enum_cache_op_flush)
-		arch_sync_dma_for_device(ioctl_arg.addr_p, ioctl_arg.size, DMA_TO_DEVICE);
+		dma_sync_single_for_device(sys_dma_dev,
+					   (dma_addr_t)ioctl_arg.addr_p,
+					   ioctl_arg.size, DMA_TO_DEVICE);
 
 	/*	*/
 	smp_mb();
@@ -889,6 +896,7 @@ static int cvi_sys_probe(struct platform_device *pdev)
 	if (!ndev)
 		return -ENOMEM;
 	ndev->dev = dev;
+	sys_dma_dev = dev;
 
 	mutex_init(&ndev->dev_lock);
 	spin_lock_init(&ndev->close_lock);
@@ -915,10 +923,12 @@ static int cvi_sys_remove(struct platform_device *pdev)
 	sys_exit();
 
 	misc_deregister(&ndev->miscdev);
+	sys_dma_dev = NULL;
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(cvi_sys_remove);
 
 static const struct of_device_id cvitek_sys_match[] = {
 	{ .compatible = "cvitek,sys" },
@@ -928,7 +938,7 @@ MODULE_DEVICE_TABLE(of, cvitek_sys_match);
 
 static struct platform_driver cvitek_sys_driver = {
 	.probe = cvi_sys_probe,
-	.remove = cvi_sys_remove,
+	.remove = CVI_PLATFORM_REMOVE_CALLBACK(cvi_sys_remove),
 	.driver = {
 			.owner = THIS_MODULE,
 			.name = CVI_SYS_DEV_NAME,
@@ -940,4 +950,6 @@ module_platform_driver(cvitek_sys_driver);
 MODULE_AUTHOR("Wellken Chen<wellken.chen@cvitek.com.tw>");
 MODULE_DESCRIPTION("Cvitek SoC SYS driver");
 MODULE_LICENSE("GPL");
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+MODULE_IMPORT_NS("DMA_BUF");
+#endif

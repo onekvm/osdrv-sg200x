@@ -5,6 +5,7 @@
 #include <linux/platform_device.h>
 #include <linux/version.h>
 #include <generated/compile.h>
+#include <generated/utsversion.h>
 
 #include <base_ctx.h>
 #include <linux/cvi_comm_venc.h>
