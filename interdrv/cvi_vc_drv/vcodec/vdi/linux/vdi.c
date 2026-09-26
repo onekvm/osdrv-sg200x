@@ -672,7 +672,6 @@ int allocate_common_memory(unsigned long core_idx)
 		vdb.virt_addr = vdi->vpu_common_memory.virt_addr;
 	}
 
-	vpu_set_common_memory(core_idx, &vdb);
 #else
 	if (vpu_get_common_memory(&vdb) < 0) {
 		CVI_VC_ERR("[VDI] fail to allocate_common_memory size=%d\n",
