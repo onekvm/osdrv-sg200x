@@ -422,7 +422,7 @@ static int base_open(struct inode *inode, struct file *filp)
 	INIT_LIST_HEAD(&ps->list);
 	ps->state_pid = get_pid(task_pid(current));
 	ps->cred = get_current_cred();
-	security_task_getsecid(current, &ps->secid);
+	security_task_getsecid_subj(current, &ps->secid);
 	/* memory barrier in smp case. */
 	smp_wmb();
 	/* replace the private data with base state */
