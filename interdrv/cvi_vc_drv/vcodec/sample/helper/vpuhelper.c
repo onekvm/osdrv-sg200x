@@ -1073,7 +1073,7 @@ int setWaveEncOpenParam(EncOpenParam *pEncOP, TestEncConfig *pEncConfig,
 
 	pEncOP->statTime = 2;
 	pEncOP->changePos =
-		(pEncConfig->changePos > 50 && pEncConfig->changePos < 100) ?
+		(pEncConfig->changePos >= 10 && pEncConfig->changePos <= 100) ?
 			      pEncConfig->changePos :
 			      90;
 	pEncOP->frmLostOpen = pEncConfig->frmLostOpen;
@@ -1350,7 +1350,7 @@ int setCoda9EncOpenParam(EncOpenParam *pEncOP, TestEncConfig *pEncConfig,
 
 	pEncOP->statTime = 2;
 	pEncOP->changePos =
-		(pEncConfig->changePos > 50 && pEncConfig->changePos < 100) ?
+		(pEncConfig->changePos >= 10 && pEncConfig->changePos <= 100) ?
 			      pEncConfig->changePos :
 			      90;
 	pEncOP->frmLostOpen = pEncConfig->frmLostOpen;
