@@ -614,7 +614,11 @@ int cvi_gdc_init(struct cvi_dwa_vdev *wdev)
 
 	// Same as sched_set_fifo in linux 5.x
 	tsk.sched_priority = MAX_RT_PRIO / 2;
-	ret = sched_setscheduler(wdev->thread, SCHED_FIFO, &tsk);
+	ret = sched_setattr_nocheck(wdev->thread, &(struct sched_attr) {
+		.size = sizeof(struct sched_attr),
+		.sched_policy = SCHED_FIFO,
+		.sched_priority = tsk.sched_priority,
+	});
 	if (ret)
 		CVI_TRACE_DWA(CVI_DBG_WARN, "gdc thread priority update failed: %d\n", ret);
 
@@ -984,7 +988,11 @@ s32 dwa_start_handler(struct cvi_dwa_vdev *wdev_dwa)
 
 	// Same as sched_set_fifo in linux 5.x
 	tsk.sched_priority = MAX_RT_PRIO / 2;
-	ret = sched_setscheduler(wdev_dwa->thread, SCHED_FIFO, &tsk);
+	ret = sched_setattr_nocheck(wdev_dwa->thread, &(struct sched_attr) {
+		.size = sizeof(struct sched_attr),
+		.sched_policy = SCHED_FIFO,
+		.sched_priority = tsk.sched_priority,
+	});
 	if (ret)
 		CVI_TRACE_DWA(CVI_DBG_WARN, "gdc thread priority update failed: %d\n", ret);
 

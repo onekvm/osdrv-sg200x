@@ -2,6 +2,7 @@
 #include <linux/io.h>
 #include <linux/uaccess.h>
 #include <linux/poll.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/sys.h>
 #include <linux/of_gpio.h>
 
@@ -1340,7 +1341,11 @@ int vo_create_thread(struct cvi_vo_dev *vdev, enum E_VO_TH th_id)
 			CVI_TRACE_VO(CVI_DBG_ERR, "Unable to start %s.\n", vdev->vo_th[th_id].th_name);
 			return -1;
 		}
-		sched_setscheduler(vdev->vo_th[th_id].w_thread, SCHED_FIFO, &param);
+		sched_setattr_nocheck(vdev->vo_th[th_id].w_thread, &(struct sched_attr) {
+			.size = sizeof(struct sched_attr),
+			.sched_policy = SCHED_FIFO,
+			.sched_priority = param.sched_priority,
+		});
 		vdev->vo_th[th_id].flag = 0;
 		atomic_set(&vdev->vo_th[th_id].thread_exit, 0);
 		init_waitqueue_head(&vdev->vo_th[th_id].wq);

@@ -6489,7 +6489,11 @@ int cvitest_venc_main(int argc, char **argv)
 			ret = 0;
 			goto BAILOUT;
 		}
-		sched_setscheduler(thread_id[i], SCHED_RR, &param);
+		sched_setattr_nocheck(thread_id[i], &(struct sched_attr) {
+			.size = sizeof(struct sched_attr),
+			.sched_policy = SCHED_RR,
+			.sched_priority = param.sched_priority,
+		});
 	}
 
 	for (i = 0; i < gNumInstance; i++) {

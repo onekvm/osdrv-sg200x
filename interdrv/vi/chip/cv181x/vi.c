@@ -1,5 +1,6 @@
 #include <vi.h>
 #include <linux/cvi_base_ctx.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/of_gpio.h>
 #include <proc/vi_dbg_proc.h>
 #include <proc/vi_proc.h>
@@ -4679,7 +4680,11 @@ int vi_create_thread(struct cvi_vi_dev *vdev, enum E_VI_TH th_id)
 			return -1;
 		}
 
-		sched_setscheduler(vdev->vi_th[th_id].w_thread, SCHED_FIFO, &param);
+		sched_setattr_nocheck(vdev->vi_th[th_id].w_thread, &(struct sched_attr) {
+			.size = sizeof(struct sched_attr),
+			.sched_policy = SCHED_FIFO,
+			.sched_priority = param.sched_priority,
+		});
 
 		vdev->vi_th[th_id].flag = 0;
 		atomic_set(&vdev->vi_th[th_id].thread_exit, 0);
