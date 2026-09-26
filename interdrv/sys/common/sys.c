@@ -383,8 +383,8 @@ EXPORT_SYMBOL_GPL(sys_ion_get_memory_state);
 
 CVI_S32 sys_cache_invalidate(CVI_U64 addr_p, void *addr_v, CVI_U32 u32Len)
 {
-	dma_sync_single_for_device(sys_dma_dev, (dma_addr_t)addr_p, u32Len,
-				   DMA_FROM_DEVICE);
+	dma_sync_single_for_cpu(sys_dma_dev, (dma_addr_t)addr_p, u32Len,
+				DMA_FROM_DEVICE);
 
 	/*	*/
 	smp_mb();
@@ -415,9 +415,9 @@ static CVI_S32 sys_cache_op_userv(unsigned long arg, enum enum_cache_op op_code)
 	}
 
 	if (op_code == enum_cache_op_invalid)
-		dma_sync_single_for_device(sys_dma_dev,
-					   (dma_addr_t)ioctl_arg.addr_p,
-					   ioctl_arg.size, DMA_FROM_DEVICE);
+		dma_sync_single_for_cpu(sys_dma_dev,
+					(dma_addr_t)ioctl_arg.addr_p,
+					ioctl_arg.size, DMA_FROM_DEVICE);
 	else if (op_code == enum_cache_op_flush)
 		dma_sync_single_for_device(sys_dma_dev,
 					   (dma_addr_t)ioctl_arg.addr_p,
