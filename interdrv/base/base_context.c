@@ -1,4 +1,5 @@
 #include <linux/cvi_base_ctx.h>
+#include <linux/ratelimit.h>
 #include <linux/cvi_vi_ctx.h>
 #include <linux/cvi_vo_ctx.h>
 #include <linux/cvi_buffer.h>
@@ -25,6 +26,9 @@ struct cvi_vo_ctx	*vo_ctx;
 
 CVI_S32 (*base_qbuf_cb[CVI_ID_BUTT])(struct cvi_buffer *buf, CVI_U32 param) = {0};
 CVI_S32 (*base_dqbuf_cb[CVI_ID_BUTT])(struct cvi_buffer *buf, CVI_U32 param) = {0};
+
+static DEFINE_RATELIMIT_STATE(vb_workq_full_rs, 10 * HZ, 1);
+static DEFINE_RATELIMIT_STATE(vb_waitq_full_rs, 10 * HZ, 1);
 
 static void _vpss_post_job(CVI_S32 dev_id)
 {
@@ -687,8 +691,10 @@ CVI_S32 vb_qbuf(MMF_CHN_S chn, enum CHN_TYPE_E chn_type, VB_BLK blk)
 		if (FIFO_FULL(&jobs->workq)) {
 			mutex_unlock(&jobs->lock);
 			atomic_fetch_sub(1, &vb->usr_cnt);
-			CVI_TRACE_BASE(CVI_BASE_DBG_ERR, "%s workq is full. drop new one.\n",
-				sys_get_modname(chn.enModId));
+			if (__ratelimit(&vb_workq_full_rs)) {
+				CVI_TRACE_BASE(CVI_BASE_DBG_ERR, "%s workq is full. drop new one.\n",
+					sys_get_modname(chn.enModId));
+			}
 			return -ENOBUFS;
 		}
 		vb->buf.dev_num = chn.s32ChnId;
@@ -712,8 +718,10 @@ CVI_S32 vb_qbuf(MMF_CHN_S chn, enum CHN_TYPE_E chn_type, VB_BLK blk)
 		if (FIFO_FULL(&jobs->waitq)) {
 			mutex_unlock(&jobs->lock);
 			atomic_fetch_sub(1, &vb->usr_cnt);
-			CVI_TRACE_BASE(CVI_BASE_DBG_ERR, "%s waitq is full. drop new one.\n"
-				     , sys_get_modname(chn.enModId));
+			if (__ratelimit(&vb_waitq_full_rs)) {
+				CVI_TRACE_BASE(CVI_BASE_DBG_ERR, "%s waitq is full. drop new one.\n"
+					     , sys_get_modname(chn.enModId));
+			}
 			return -ENOBUFS;
 		}
 		FIFO_PUSH(&jobs->waitq, vb);
