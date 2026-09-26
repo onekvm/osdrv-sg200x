@@ -134,7 +134,7 @@ static int snsr_i2c_burst_queue(struct cvi_i2c_dev *dev, struct isp_i2c_data *i2
 	msg->addr = i2c->dev_addr;
 	msg->buf = tx;
 	msg->len = idx;
-	msg->flags = I2C_M_WRSTOP;
+	msg->flags = I2C_M_STOP;
 
 	ctx->addr_bytes = i2c->addr_bytes;
 	ctx->data_bytes = i2c->data_bytes;
@@ -364,9 +364,9 @@ static int _init_resource(struct platform_device *pdev)
 		i2c_adap = i2c_get_adapter(i);
 		if (!i2c_adap)
 			continue;
-		dev_info(&pdev->dev, "i2c:-------hook %d\n", i2c_adap->i2c_idx);
-		if (i2c_adap->i2c_idx < I2C_MAX_NUM) {
-			ctx = &dev->ctx[i2c_adap->i2c_idx];
+		dev_info(&pdev->dev, "i2c:-------hook %d\n", i2c_adap->nr);
+		if (i2c_adap->nr < I2C_MAX_NUM) {
+			ctx = &dev->ctx[i2c_adap->nr];
 			if (!ctx->client) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
 				ctx->client = i2c_new_client_device(i2c_adap, &cvi_info);
@@ -377,7 +377,7 @@ static int _init_resource(struct platform_device *pdev)
 				if (!ctx->buf)
 					return -ENOMEM;
 			} else
-				dev_err(&pdev->dev, "duplicate i2c_adpa idx %d\n", i2c_adap->i2c_idx);
+				dev_err(&pdev->dev, "duplicate i2c_adpa idx %d\n", i2c_adap->nr);
 
 		}
 		i2c_put_adapter(i2c_adap);
