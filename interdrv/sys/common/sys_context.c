@@ -44,12 +44,18 @@ EXPORT_SYMBOL_GPL(vdec_vb_ctx);
 
 CVI_S32 sys_ctx_init(void)
 {
+	unsigned int i;
+
 	TAILQ_INIT(&binds);
 	spin_lock_init(&bind_lock);
 	spin_lock_init(&mem_lock);
 	memset(ctx_mem_mgr, 0, sizeof(struct mem_mapping) * MEM_MAPPING_MAX);
 	memset(&ctx_info, 0, sizeof(struct sys_ctx_info));
 	memset(bind_nodes, 0, sizeof(bind_nodes));
+	for (i = 0; i < VENC_MAX_CHN_NUM; ++i) {
+		mutex_init(&venc_vb_ctx[i].thread_lock);
+		init_completion(&venc_vb_ctx[i].thread_exited);
+	}
 
 	return 0;
 }
@@ -320,4 +326,3 @@ CVI_S32 sys_ctx_get_bindbydst(MMF_CHN_S *pstDestChn, MMF_CHN_S *pstSrcChn)
 	spin_unlock_irqrestore(&bind_lock, flags_job);
 	return -1;
 }
-

@@ -79,6 +79,29 @@
 	((pVbCtx->currBindMode == CVI_FALSE) &&                                \
 	 (pVbCtx->enable_bind_mode == CVI_TRUE))
 
+/* The bind handlers can exit by themselves when SYS unbinds
+ * the channel or a finite receive count is reached, while StopRecvFrame still
+ * retains pVbCtx->thread. Hold one reference after kthread_create() until the
+ * pointer is atomically taken by the stop path; otherwise kthread_stop() can
+ * dereference a freed
+ * task_struct. */
+static void venc_stop_bind_thread(struct cvi_venc_vb_ctx *pVbCtx,
+				  venc_chn_context *pChnHandle,
+				  venc_chn_vars *pChnVars)
+{
+	struct task_struct *thread;
+
+	pChnHandle->bChnEnable = CVI_FALSE;
+	SEMA_POST(&pVbCtx->vb_jobs.sem);
+	SEMA_POST(&pChnVars->sem_send);
+	thread = xchg(&pVbCtx->thread, NULL);
+	if (thread) {
+		kthread_stop(thread);
+		put_task_struct(thread);
+	}
+	pVbCtx->currBindMode = CVI_FALSE;
+}
+
 venc_dbg vencDbg;
 venc_context *handle;
 
@@ -401,6 +424,7 @@ static int venc_event_handler(CVI_VOID *data)
 
 	if (SEMA_WAIT(&pChnVars->sem_send) != 0) {
 		CVI_VENC_ERR("can not down sem_send\n");
+		complete(&pVbCtx->thread_exited);
 		return CVI_FAILURE;
 	}
 	pstVFrame->u32Width = pChnHandle->pChnAttr->stVencAttr.u32PicWidth;
@@ -590,6 +614,7 @@ static int venc_event_handler(CVI_VOID *data)
 #ifdef DUMP_BIND_YUV
 	fclose(out_f);
 #endif
+	complete(&pVbCtx->thread_exited);
 	return CVI_SUCCESS;
 
 VENC_EVENT_HANDLER_ERR:
@@ -608,6 +633,7 @@ VENC_EVENT_HANDLER_ERR_2:
 #ifdef DUMP_BIND_YUV
 	fclose(out_f);
 #endif
+	complete(&pVbCtx->thread_exited);
 	return CVI_SUCCESS;
 }
 
@@ -650,6 +676,7 @@ static int h26x_event_handler(CVI_VOID *data)
 
 	if (SEMA_WAIT(&pChnVars->sem_send) != 0) {
 		CVI_VENC_ERR("can not down sem_send\n");
+		complete(&pVbCtx->thread_exited);
 		return CVI_FAILURE;
 	}
 	pstVFrame->u32Width = pChnHandle->pChnAttr->stVencAttr.u32PicWidth;
@@ -764,6 +791,7 @@ static int h26x_event_handler(CVI_VOID *data)
 #ifdef DUMP_BIND_YUV
 	fclose(out_f);
 #endif
+	complete(&pVbCtx->thread_exited);
 	return CVI_SUCCESS;
 
 VENC_EVENT_HANDLER_ERR:
@@ -777,6 +805,7 @@ VENC_EVENT_HANDLER_ERR:
 #ifdef DUMP_BIND_YUV
 	fclose(out_f);
 #endif
+	complete(&pVbCtx->thread_exited);
 	return CVI_SUCCESS;
 }
 
@@ -3056,6 +3085,7 @@ CVI_S32 CVI_VENC_StartRecvFrame(VENC_CHN VeChn,
 	s32Ret = cviSetCuPredToDrv(pChnHandle);
 	if (s32Ret < 0) {
 		CVI_VENC_ERR("cviSetCuPredToDrv\n");
+		MUTEX_UNLOCK(&pChnHandle->chnMutex);
 		return s32Ret;
 	}
 
@@ -3084,46 +3114,62 @@ CVI_S32 CVI_VENC_StartRecvFrame(VENC_CHN VeChn,
 
 	MUTEX_UNLOCK(&pChnHandle->chnMutex);
 
+	mutex_lock(&pVbCtx->thread_lock);
+	if (pVbCtx->thread && completion_done(&pVbCtx->thread_exited))
+		venc_stop_bind_thread(pVbCtx, pChnHandle, pChnVars);
 	if (IF_WANNA_ENABLE_BIND_MODE()) {
 		struct sched_param param = {
 			.sched_priority = 95,
 		};
+		struct task_struct *thread;
 
 		pVbCtx->currBindMode = CVI_TRUE;
 		pChnHandle->bChnEnable = CVI_TRUE;
 		if (!pVbCtx->thread) {
+			reinit_completion(&pVbCtx->thread_exited);
 			if (pVencAttr->bIsoSendFrmEn &&
 				(pVencAttr->enType == PT_H264 ||  pVencAttr->enType == PT_H265)) {
-				pVbCtx->thread = kthread_run(h26x_event_handler,
+				thread = kthread_create(h26x_event_handler,
 						     (CVI_VOID *)pChnHandle,
 						     "cvitask_vc_bh%d", VeChn);
-
-				s32Ret = pEncCtx->base.ioctl(pEncCtx, CVI_H26X_OP_SET_ASYNC_ENABLE,
-					(CVI_VOID *)&bAsyncEn);
-				if (s32Ret != CVI_SUCCESS) {
-					CVI_VENC_ERR("CVI_H26X_OP_SET_ASYNC_ENABLE, %d\n", s32Ret);
-					return -1;
-				}
 			} else {
-				pVbCtx->thread = kthread_run(venc_event_handler,
+				thread = kthread_create(venc_event_handler,
 						     (CVI_VOID *)pChnHandle,
 						     "venc-handler%d", VeChn);
 			}
 
-			if (IS_ERR(pVbCtx->thread)) {
+			if (IS_ERR(thread)) {
 				CVI_VENC_ERR(
 					"failed to create venc binde mode thread for chn %d\n",
 					VeChn);
+				pVbCtx->currBindMode = CVI_FALSE;
+				pChnHandle->bChnEnable = CVI_FALSE;
+				mutex_unlock(&pVbCtx->thread_lock);
 				return CVI_FAILURE;
 			}
-			sched_setattr_nocheck(pVbCtx->thread, &(struct sched_attr) {
+			get_task_struct(thread);
+			pVbCtx->thread = thread;
+			sched_setattr_nocheck(thread, &(struct sched_attr) {
 				.size = sizeof(struct sched_attr),
 				.sched_policy = SCHED_RR,
 				.sched_priority = param.sched_priority,
 			});
+			if (pVencAttr->bIsoSendFrmEn &&
+				(pVencAttr->enType == PT_H264 || pVencAttr->enType == PT_H265)) {
+				s32Ret = pEncCtx->base.ioctl(pEncCtx,
+					CVI_H26X_OP_SET_ASYNC_ENABLE, (CVI_VOID *)&bAsyncEn);
+				if (s32Ret != CVI_SUCCESS) {
+					CVI_VENC_ERR("CVI_H26X_OP_SET_ASYNC_ENABLE, %d\n", s32Ret);
+					venc_stop_bind_thread(pVbCtx, pChnHandle, pChnVars);
+					mutex_unlock(&pVbCtx->thread_lock);
+					return -1;
+				}
+			}
+			wake_up_process(thread);
 			SEMA_POST(&pChnVars->sem_send);
 		}
 	}
+	mutex_unlock(&pVbCtx->thread_lock);
 
 	CVI_VENC_SYNC("VENC_CHN_STATE_START_ENC\n");
 	return s32Ret;
@@ -3153,16 +3199,14 @@ CVI_S32 CVI_VENC_StopRecvFrame(VENC_CHN VeChn)
 	pChnVars = pChnHandle->pChnVars;
 	pVbCtx = pChnHandle->pVbCtx;
 
-	if (IF_WANNA_DISABLE_BIND_MODE()) {
+	mutex_lock(&pVbCtx->thread_lock);
+	if (IF_WANNA_DISABLE_BIND_MODE() ||
+		(pVbCtx->thread && completion_done(&pVbCtx->thread_exited))) {
 		SEMA_POST(&pChnVars->sem_release);
-		pChnHandle->bChnEnable = CVI_FALSE;
-		SEMA_POST(&pVbCtx->vb_jobs.sem);
-		kthread_stop(pVbCtx->thread);
-		pVbCtx->thread = NULL;
-		pVbCtx->currBindMode = CVI_FALSE;
-		SEMA_POST(&pChnVars->sem_send);
+		venc_stop_bind_thread(pVbCtx, pChnHandle, pChnVars);
 		CVI_VENC_SYNC("venc_event_handler end\n");
 	}
+	mutex_unlock(&pVbCtx->thread_lock);
 
 	pChnVars->chnState = VENC_CHN_STATE_STOP_ENC;
 	handle->chn_status[VeChn] = VENC_CHN_STATE_STOP_ENC;
@@ -3750,6 +3794,15 @@ CVI_S32 CVI_VENC_DestroyChn(VENC_CHN VeChn)
 	pVbCtx = pChnHandle->pVbCtx;
 
 	chn.s32ChnId = pChnHandle->VeChn;
+	/* Destroy is also a terminal ownership boundary.  Do not free the channel
+	 * semaphores or context while a bind handler is running, and release the
+	 * task reference even when a caller omitted StopRecvFrame. */
+	mutex_lock(&pVbCtx->thread_lock);
+	if (pVbCtx->thread) {
+		SEMA_POST(&pChnVars->sem_release);
+		venc_stop_bind_thread(pVbCtx, pChnHandle, pChnVars);
+	}
+	mutex_unlock(&pVbCtx->thread_lock);
 	base_mod_jobs_exit(chn, CHN_TYPE_IN);
 
 
@@ -7344,4 +7397,3 @@ CVI_S32 CVI_VENC_GetSvcParam(VENC_CHN VeChn, VENC_SVC_PARAM_S *pstSvcParam)
 	memcpy(pstSvcParam, &pChnHandle->svcParam, sizeof(VENC_SVC_PARAM_S));
 	return CVI_SUCCESS;
 }
-

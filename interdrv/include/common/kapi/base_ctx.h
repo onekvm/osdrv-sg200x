@@ -256,6 +256,8 @@ struct cvi_venc_vb_ctx {
 	CVI_BOOL enable_bind_mode;
 	CVI_BOOL currBindMode;
 	struct task_struct *thread;
+	struct mutex thread_lock;
+	struct completion thread_exited;
 	struct vb_jobs_t vb_jobs;
 	CVI_BOOL pause;
 };
