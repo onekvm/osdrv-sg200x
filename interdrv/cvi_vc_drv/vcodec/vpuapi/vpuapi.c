@@ -3264,7 +3264,7 @@ RetCode VPU_EncGetInitialInfo(EncHandle handle, EncInitialInfo *info)
 		CVI_VC_ERR("ProductVpuEncSetup ret error %d\n", ret);
 		/* ProductVpuEncSetup leaves this instance pending on timeout.  The
 		 * normal init-error cleanup immediately calls VPU_EncClose(), which
-		 * otherwise spins forever waiting for its own pending marker. */
+		 * otherwise waits on its own pending marker. */
 		if (GetPendingInst(pCodecInst->coreIdx) == pCodecInst) {
 			RetCode reset = VPU_SWReset(pCodecInst->coreIdx,
 						    SW_RESET_SAFETY, pCodecInst);

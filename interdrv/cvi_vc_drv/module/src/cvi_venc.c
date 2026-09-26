@@ -79,11 +79,9 @@
 	((pVbCtx->currBindMode == CVI_FALSE) &&                                \
 	 (pVbCtx->enable_bind_mode == CVI_TRUE))
 
-/* The bind handlers can exit by themselves when SYS unbinds
- * the channel or a finite receive count is reached, while StopRecvFrame still
- * retains pVbCtx->thread. Hold one reference after kthread_create() until the
- * pointer is atomically taken by the stop path; otherwise kthread_stop() can
- * dereference a freed
+/* A bind handler can exit before StopRecvFrame takes pVbCtx->thread.
+ * Keep a task reference from kthread_create() until the stop path takes it,
+ * or kthread_stop() may dereference a freed
  * task_struct. */
 static void venc_stop_bind_thread(struct cvi_venc_vb_ctx *pVbCtx,
 				  venc_chn_context *pChnHandle,
