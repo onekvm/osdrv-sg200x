@@ -1742,6 +1742,7 @@ static int cvi_vpss_remove(struct platform_device *pdev)
 
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(cvi_vpss_remove);
 
 #ifdef CONFIG_PM_SLEEP
 static int vpss_core_suspend(struct device *dev)
@@ -1793,7 +1794,7 @@ static struct platform_device cvi_vpss_pdev = {
 
 static struct platform_driver cvi_vpss_pdrv = {
 	.probe      = cvi_vpss_probe,
-	.remove     = cvi_vpss_remove,
+	.remove     = CVI_PLATFORM_REMOVE_CALLBACK(cvi_vpss_remove),
 	.driver     = {
 		.name           = "vpss",
 		.owner          = THIS_MODULE,

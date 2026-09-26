@@ -1,5 +1,6 @@
 #include <vi.h>
 #include <linux/cvi_base_ctx.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/of_gpio.h>
 #include <proc/vi_dbg_proc.h>
 #include <proc/vi_proc.h>
@@ -81,7 +82,7 @@ struct cvi_gdc_mesh g_vi_mesh[VI_MAX_CHN_NUM];
 #if (KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE)
 static void legacy_timer_emu_func(struct timer_list *t)
 {
-	struct legacy_timer_emu *lt = from_timer(lt, t, t);
+	struct legacy_timer_emu *lt = container_of(t, struct legacy_timer_emu, t);
 
 	lt->function(lt->data);
 }
@@ -2154,11 +2155,11 @@ void usr_pic_time_remove(void)
 {
 #if (KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE)
 	if (timer_pending(&usr_pic_timer.t)) {
-		del_timer_sync(&usr_pic_timer.t);
+		timer_delete_sync(&usr_pic_timer.t);
 		timer_setup(&usr_pic_timer.t, legacy_timer_emu_func, 0);
 #else
 	if (timer_pending(&usr_pic_timer)) {
-		del_timer_sync(&usr_pic_timer);
+		timer_delete_sync(&usr_pic_timer);
 		init_timer(&usr_pic_timer);
 #endif
 	}
@@ -4643,7 +4644,7 @@ int vi_create_thread(struct cvi_vi_dev *vdev, enum E_VI_TH th_id)
 		return -1;
 	}
 
-	param.sched_priority = MAX_USER_RT_PRIO - 10;
+	param.sched_priority = MAX_RT_PRIO - 10;
 
 	if (vdev->vi_th[th_id].w_thread == NULL) {
 		switch (th_id) {
@@ -4679,7 +4680,11 @@ int vi_create_thread(struct cvi_vi_dev *vdev, enum E_VI_TH th_id)
 			return -1;
 		}
 
-		sched_setscheduler(vdev->vi_th[th_id].w_thread, SCHED_FIFO, &param);
+		sched_setattr_nocheck(vdev->vi_th[th_id].w_thread, &(struct sched_attr) {
+			.size = sizeof(struct sched_attr),
+			.sched_policy = SCHED_FIFO,
+			.sched_priority = param.sched_priority,
+		});
 
 		vdev->vi_th[th_id].flag = 0;
 		atomic_set(&vdev->vi_th[th_id].thread_exit, 0);

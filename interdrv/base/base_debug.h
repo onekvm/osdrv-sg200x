@@ -2,6 +2,7 @@
 #define _BASE_DEBUG_H_
 
 #include <linux/debugfs.h>
+#include <cvi_mmf_log.h>
 
 extern u32 base_log_lv;
 
@@ -15,7 +16,11 @@ extern u32 base_log_lv;
 
 #define CVI_TRACE_BASE(level, fmt, ...) \
 	do { \
-		if (level <= base_log_lv) { \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_BASE, \
+			(level == CVI_BASE_DBG_ERR) ? 1 : \
+			(level == CVI_BASE_DBG_WARN) ? 2 : \
+			(level == CVI_BASE_DBG_NOTICE) ? 3 : \
+			(level == CVI_BASE_DBG_INFO) ? 4 : 5)) { \
 			if (level == CVI_BASE_DBG_ERR) \
 				pr_err("%s:%d(): " fmt, __func__, __LINE__, ##__VA_ARGS__); \
 			else if (level == CVI_BASE_DBG_WARN) \
@@ -30,4 +35,3 @@ extern u32 base_log_lv;
 	} while (0)
 
 #endif /* _BASE_DEBUG_H_ */
-

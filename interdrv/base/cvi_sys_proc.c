@@ -1,4 +1,5 @@
 #include "cvi_sys_proc.h"
+#include <generated/utsversion.h>
 
 #define SYS_PROC_NAME			"sys"
 #define SYS_PROC_PERMS			(0644)

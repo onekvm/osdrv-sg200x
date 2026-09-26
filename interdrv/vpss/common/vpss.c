@@ -5146,7 +5146,7 @@ static void vpss_start_handler(void)
 	char thread_name[32];
 
 	// Same as sched_set_fifo in linux 5.x
-	tsk.sched_priority = MAX_USER_RT_PRIO - 10;
+	tsk.sched_priority = MAX_RT_PRIO - 10;
 
 	for (u8VpssDev = 0; u8VpssDev < VPSS_IP_NUM; u8VpssDev++) {
 		handler_ctx[u8VpssDev].u8VpssDev = u8VpssDev;
@@ -5169,7 +5169,11 @@ static void vpss_start_handler(void)
 			pr_err("failed to create vpss kthread, u8VpssDev=%d\n", u8VpssDev);
 		}
 
-		ret = sched_setscheduler(handler_ctx[u8VpssDev].thread, SCHED_FIFO, &tsk);
+		ret = sched_setattr_nocheck(handler_ctx[u8VpssDev].thread, &(struct sched_attr) {
+			.size = sizeof(struct sched_attr),
+			.sched_policy = SCHED_FIFO,
+			.sched_priority = tsk.sched_priority,
+		});
 		if (ret)
 			pr_warn("vpss thread priority update failed: %d\n", ret);
 		CVI_TRACE_VPSS(CVI_DBG_WARN, "handler for dev(%d) started", u8VpssDev);

@@ -3,6 +3,7 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/mm.h>
+#include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -546,6 +547,7 @@ static int cvi_dwa_remove(struct platform_device *pdev)
 
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(cvi_dwa_remove);
 
 static const struct of_device_id cvi_dwa_dt_match[] = {
 	{ .compatible = "cvitek,dwa" },
@@ -612,7 +614,7 @@ static SIMPLE_DEV_PM_OPS(dwa_pm_ops, NULL, NULL);
 
 static struct platform_driver cvi_dwa_driver = {
 	.probe      = cvi_dwa_probe,
-	.remove     = cvi_dwa_remove,
+	.remove     = CVI_PLATFORM_REMOVE_CALLBACK(cvi_dwa_remove),
 	.driver     = {
 		.name		= "cvi-dwa",
 		.owner		= THIS_MODULE,

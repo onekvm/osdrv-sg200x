@@ -19,6 +19,10 @@
 #include "main_helper.h"
 #include "wave/common/common_regdefine.h"
 
+#include <linux/delay.h>
+#include <linux/jiffies.h>
+#include <linux/sched/signal.h>
+
 #ifdef BIT_CODE_FILE_PATH
 #include BIT_CODE_FILE_PATH
 #endif
@@ -3102,14 +3106,30 @@ RetCode cviConfigEncParam(CodecInst *pCodec, EncOpenParam *param)
 	return ret;
 }
 
-void VPU_WaitPendingInst(CodecInst *pCodecInst)
+#define VPU_PENDING_INST_WAIT_MS 1000
+
+static RetCode VPU_WaitPendingInst(CodecInst *pCodecInst)
 {
-RETRY:
-	if (GetPendingInst(pCodecInst->coreIdx)) {
-		goto RETRY;
+	unsigned long deadline = jiffies +
+		msecs_to_jiffies(VPU_PENDING_INST_WAIT_MS);
+	CodecInst *pending;
+
+	while ((pending = GetPendingInst(pCodecInst->coreIdx)) != NULL) {
+		if (fatal_signal_pending(current)) {
+			CVI_VC_ERR("pending instance wait interrupted: core %d pending %p\n",
+				   pCodecInst->coreIdx, pending);
+			return RETCODE_FAILURE;
+		}
+		if (time_after_eq(jiffies, deadline)) {
+			CVI_VC_ERR("pending instance wait timed out: core %d pending %p\n",
+				   pCodecInst->coreIdx, pending);
+			return RETCODE_VPU_RESPONSE_TIMEOUT;
+		}
+		msleep_interruptible(1);
 	}
 
 	SetPendingInst(pCodecInst->coreIdx, pCodecInst, __func__, __LINE__);
+	return RETCODE_SUCCESS;
 }
 
 RetCode VPU_EncClose(EncHandle handle)
@@ -3125,7 +3145,9 @@ RetCode VPU_EncClose(EncHandle handle)
 	pCodecInst = handle;
 	pEncInfo = &pCodecInst->CodecInfo->encInfo;
 
-	VPU_WaitPendingInst(pCodecInst);
+	ret = VPU_WaitPendingInst(pCodecInst);
+	if (ret != RETCODE_SUCCESS)
+		return ret;
 
 	if (pEncInfo->initialInfoObtained) {
 		VpuWriteReg(pCodecInst->coreIdx, pEncInfo->streamWrPtrRegAddr,
@@ -3233,11 +3255,31 @@ RetCode VPU_EncGetInitialInfo(EncHandle handle, EncInitialInfo *info)
 	pCodecInst = handle;
 	pEncInfo = &pCodecInst->CodecInfo->encInfo;
 
-	VPU_WaitPendingInst(pCodecInst);
+	ret = VPU_WaitPendingInst(pCodecInst);
+	if (ret != RETCODE_SUCCESS)
+		return ret;
 
 	ret = ProductVpuEncSetup(pCodecInst);
 	if (ret != RETCODE_SUCCESS) {
 		CVI_VC_ERR("ProductVpuEncSetup ret error %d\n", ret);
+		/* ProductVpuEncSetup leaves this instance pending on timeout.  The
+		 * normal init-error cleanup immediately calls VPU_EncClose(), which
+		 * otherwise spins forever waiting for its own pending marker. */
+		if (GetPendingInst(pCodecInst->coreIdx) == pCodecInst) {
+			RetCode reset = VPU_SWReset(pCodecInst->coreIdx,
+						    SW_RESET_SAFETY, pCodecInst);
+			if (reset != RETCODE_SUCCESS) {
+				/* Preserve ownership when reset did not confirm that the
+				 * in-flight command stopped. */
+				if (GetPendingInst(pCodecInst->coreIdx) == NULL)
+					SetPendingInst(pCodecInst->coreIdx, pCodecInst,
+						       __func__, __LINE__);
+				CVI_VC_ERR("sequence-init recovery reset failed %d\n",
+					   reset);
+			} else {
+				pEncInfo->initialInfoObtained = FALSE;
+			}
+		}
 		return ret;
 	}
 
@@ -3316,7 +3358,9 @@ RetCode VPU_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer *bufArray,
 			return RETCODE_INVALID_STRIDE;
 	}
 
-	VPU_WaitPendingInst(pCodecInst);
+	ret = VPU_WaitPendingInst(pCodecInst);
+	if (ret != RETCODE_SUCCESS)
+		return ret;
 
 	pEncInfo->numFrameBuffers = num;
 	pEncInfo->stride = stride;

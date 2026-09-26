@@ -9,9 +9,9 @@ ifeq ($(CONFIG_SUSPEND), y)
 CFLAGS += -DCONFIG_SUSPEND
 endif
 
-$(CVIARCH_L)_rgn-objs += common/rgn_core.o
+soph_rgn-objs += common/rgn_core.o
 
-obj-m += $(CVIARCH_L)_rgn.o
+obj-m += soph_rgn.o
 
 ccflags-y += -I$(PWD)/common/ \
              -I$(PWD)/../base/ \

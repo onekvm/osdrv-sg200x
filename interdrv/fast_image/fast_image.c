@@ -915,7 +915,7 @@ static int cvi_fast_image_init(void)
 	int rc;
 
 	pr_debug("cvi_fast_image_init");
-	pbase_class = class_create(THIS_MODULE, FAST_IMAGE_DEV_NAME);
+	pbase_class = CVI_CLASS_CREATE(FAST_IMAGE_DEV_NAME);
 	if (IS_ERR(pbase_class)) {
 		pr_err("create class failed\n");
 		rc = PTR_ERR(pbase_class);

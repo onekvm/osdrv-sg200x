@@ -2,7 +2,9 @@
 #include <linux/io.h>
 #include <linux/uaccess.h>
 #include <linux/poll.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/sys.h>
+#include <linux/gpio.h>
 #include <linux/of_gpio.h>
 
 #include <linux/cvi_base.h>
@@ -247,13 +249,13 @@ static void _disp_sel_pinmux(enum cvi_disp_intf intf_type, void *param)
 
 void _disp_ctrlpin_set(unsigned int gpio_num, enum GPIO_ACTIVE_E active)
 {
-	enum of_gpio_flags flags;
+	unsigned long flags;
 	static int count;
 	char name[16] = "";
 	int rc = 0;
 
 	if (gpio_is_valid(gpio_num)) {
-		flags = GPIOF_DIR_OUT | (active ? GPIOF_INIT_HIGH : GPIOF_INIT_LOW);
+		flags = active ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
 		snprintf(name, sizeof(name), "disp_ctrl_pin_%d", count++);
 		rc = devm_gpio_request_one(&g_pdev->dev, gpio_num, flags, name);
 		if (rc) {
@@ -266,11 +268,11 @@ void _disp_ctrlpin_set(unsigned int gpio_num, enum GPIO_ACTIVE_E active)
 
 static void _disp_resetpin_set(unsigned int gpio_num, enum GPIO_ACTIVE_E active)
 {
-	enum of_gpio_flags flags;
+	unsigned long flags;
 	int rc = 0;
 
 	if (gpio_is_valid(gpio_num)) {
-		flags = GPIOF_DIR_OUT | (active ? GPIOF_INIT_HIGH : GPIOF_INIT_LOW);
+		flags = active ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
 		rc = devm_gpio_request_one(&g_pdev->dev, gpio_num, flags, NULL);
 		if (rc) {
 			CVI_TRACE_VO(CVI_DBG_ERR, "reset gpio_num(%d) failed\n",  gpio_num);
@@ -1319,7 +1321,7 @@ int vo_create_thread(struct cvi_vo_dev *vdev, enum E_VO_TH th_id)
 		CVI_TRACE_VO(CVI_DBG_ERR, "_vo_create_thread fail\n");
 		return -1;
 	}
-	param.sched_priority = MAX_USER_RT_PRIO - 10;
+	param.sched_priority = MAX_RT_PRIO - 10;
 
 	if (vdev->vo_th[th_id].w_thread == NULL) {
 		switch (th_id) {
@@ -1340,7 +1342,11 @@ int vo_create_thread(struct cvi_vo_dev *vdev, enum E_VO_TH th_id)
 			CVI_TRACE_VO(CVI_DBG_ERR, "Unable to start %s.\n", vdev->vo_th[th_id].th_name);
 			return -1;
 		}
-		sched_setscheduler(vdev->vo_th[th_id].w_thread, SCHED_FIFO, &param);
+		sched_setattr_nocheck(vdev->vo_th[th_id].w_thread, &(struct sched_attr) {
+			.size = sizeof(struct sched_attr),
+			.sched_policy = SCHED_FIFO,
+			.sched_priority = param.sched_priority,
+		});
 		vdev->vo_th[th_id].flag = 0;
 		atomic_set(&vdev->vo_th[th_id].thread_exit, 0);
 		init_waitqueue_head(&vdev->vo_th[th_id].wq);

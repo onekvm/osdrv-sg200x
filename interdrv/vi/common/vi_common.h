@@ -8,6 +8,7 @@
 #include <linux/clk.h>
 #include <linux/debugfs.h>
 #include <linux/io.h>
+#include <cvi_mmf_log.h>
 
 
 #ifdef PORTING_TEST
@@ -45,7 +46,9 @@ extern u32 vi_log_lv;
 
 #define vi_pr(level, fmt, arg...) \
 	do { \
-		if (vi_log_lv & level) { \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VI, \
+			(level == VI_ERR) ? 1 : (level == VI_WARN) ? 2 : \
+			(level == VI_NOTICE) ? 3 : (level == VI_INFO) ? 4 : 5)) { \
 			if (level == VI_ERR) \
 				pr_err("%s:%d(): " fmt, __func__, __LINE__, ## arg); \
 			else if (level == VI_WARN) \
@@ -55,7 +58,7 @@ extern u32 vi_log_lv;
 			else if (level == VI_INFO) \
 				pr_info("%s:%d(): " fmt, __func__, __LINE__, ## arg); \
 			else if (level == VI_DBG) \
-				pr_debug("%s:%d(): " fmt, __func__, __LINE__, ## arg); \
+				printk(KERN_DEBUG "%s:%d(): " fmt, __func__, __LINE__, ## arg); \
 		} \
 	} while (0)
 

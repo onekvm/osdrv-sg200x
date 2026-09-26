@@ -2,8 +2,10 @@
 #include <linux/kernel.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
+#include <linux/gpio.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/of_gpio.h>
+#include <dt-bindings/gpio/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h>
 #include <linux/slab.h>
@@ -34,6 +36,29 @@ int dump_reg = 1;
  */
 #define MIPI_TX_DEV_NAME "cvi-mipi-tx"
 #define MIPI_TX_PROC_NAME "vo_mipi_tx"
+
+static int cvi_vo_of_get_named_gpio_flags(const struct device_node *np,
+		const char *propname, int index, unsigned int *flags)
+{
+	struct of_phandle_args gpiospec;
+	int gpio;
+	int ret;
+
+	gpio = of_get_named_gpio(np, propname, index);
+	if (gpio < 0)
+		return gpio;
+
+	*flags = 0;
+	ret = of_parse_phandle_with_args(np, propname, "#gpio-cells", index,
+					 &gpiospec);
+	if (!ret) {
+		if (gpiospec.args_count)
+			*flags = gpiospec.args[gpiospec.args_count - 1];
+		of_node_put(gpiospec.np);
+	}
+
+	return gpio;
+}
 
 #define CVI_VIP_MIPI_TX_INFO(fmt, arg...)								\
 		pr_debug("%d:%s(): " fmt, __LINE__, __func__, ## arg)
@@ -604,7 +629,8 @@ static int _init_resources(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct cvi_vip_mipi_tx_dev *tdev;
-	enum of_gpio_flags flags;
+	unsigned long flags;
+	unsigned int dt_flags;
 
 	tdev = dev_get_drvdata(&pdev->dev);
 	if (!tdev) {
@@ -652,25 +678,25 @@ static int _init_resources(struct platform_device *pdev)
 		}
 	} else {
 		// reset pin
-		tdev->reset_pin = of_get_named_gpio_flags(pdev->dev.of_node,
-					 "reset-gpio", 0, &flags);
-		tdev->reset_pin_active = (flags & OF_GPIO_ACTIVE_LOW) ? 0 : 1;
+		tdev->reset_pin = cvi_vo_of_get_named_gpio_flags(pdev->dev.of_node,
+					 "reset-gpio", 0, &dt_flags);
+		tdev->reset_pin_active = (dt_flags & GPIO_ACTIVE_LOW) ? 0 : 1;
 
 		// pwm pin
-		tdev->pwm_pin = of_get_named_gpio_flags(pdev->dev.of_node,
-					 "pwm-gpio", 0, &flags);
-		tdev->pwm_pin_active = (flags & OF_GPIO_ACTIVE_LOW) ? 0 : 1;
+		tdev->pwm_pin = cvi_vo_of_get_named_gpio_flags(pdev->dev.of_node,
+					 "pwm-gpio", 0, &dt_flags);
+		tdev->pwm_pin_active = (dt_flags & GPIO_ACTIVE_LOW) ? 0 : 1;
 
 		// power ctrl pin
-		tdev->power_ct_pin = of_get_named_gpio_flags(pdev->dev.of_node,
-					 "power-ct-gpio", 0, &flags);
-		tdev->power_ct_pin_active = (flags & OF_GPIO_ACTIVE_LOW) ? 0 : 1;
+		tdev->power_ct_pin = cvi_vo_of_get_named_gpio_flags(pdev->dev.of_node,
+					 "power-ct-gpio", 0, &dt_flags);
+		tdev->power_ct_pin_active = (dt_flags & GPIO_ACTIVE_LOW) ? 0 : 1;
 	}
 
 	smooth = sclr_disp_check_tgen_enable();
 	if (!smooth) {
 		if (gpio_is_valid(tdev->reset_pin)) {
-			flags = GPIOF_DIR_OUT | (tdev->reset_pin_active ? GPIOF_INIT_HIGH : GPIOF_INIT_LOW);
+			flags = tdev->reset_pin_active ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
 			rc = devm_gpio_request_one(&pdev->dev, tdev->reset_pin, flags, "cvi_panel_reset");
 			if (rc) {
 				tdev->reset_pin = -EINVAL;
@@ -682,7 +708,7 @@ static int _init_resources(struct platform_device *pdev)
 		}
 
 		if (gpio_is_valid(tdev->pwm_pin)) {
-			flags = GPIOF_DIR_OUT | (tdev->pwm_pin_active ? GPIOF_INIT_HIGH : GPIOF_INIT_LOW);
+			flags = tdev->pwm_pin_active ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
 			rc = devm_gpio_request_one(&pdev->dev, tdev->pwm_pin, flags, "cvi_pwm");
 			if (rc) {
 				tdev->pwm_pin = -EINVAL;
@@ -691,7 +717,7 @@ static int _init_resources(struct platform_device *pdev)
 		}
 
 		if (gpio_is_valid(tdev->power_ct_pin)) {
-			flags = GPIOF_DIR_OUT | (tdev->power_ct_pin_active ? GPIOF_INIT_HIGH : GPIOF_INIT_LOW);
+			flags = tdev->power_ct_pin_active ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
 			rc = devm_gpio_request_one(&pdev->dev, tdev->power_ct_pin, flags, "cvi_power_ct");
 			if (rc) {
 				tdev->power_ct_pin = -EINVAL;
@@ -839,6 +865,7 @@ static int cvi_mipi_tx_remove(struct platform_device *pdev)
 
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(cvi_mipi_tx_remove);
 
 #if 0
 static int vo_mipi_tx_suspend(struct platform_device *pdev, pm_message_t state)
@@ -876,7 +903,7 @@ static const struct of_device_id cvi_mipi_tx_dt_match[] = { { .compatible = "cvi
 
 static struct platform_driver cvi_mipi_tx_pdrv = {
 	.probe = cvi_mipi_tx_probe,
-	.remove = cvi_mipi_tx_remove,
+	.remove = CVI_PLATFORM_REMOVE_CALLBACK(cvi_mipi_tx_remove),
 	.driver = {
 		.name = MIPI_TX_DEV_NAME,
 		.owner = THIS_MODULE,

@@ -21,11 +21,12 @@
 #endif
 #include <linux/security.h>
 #include <linux/cred.h>
-#include "tee_cv_private.h"
 #include "base.h"
 #include "vb.h"
 #include "cvi_vb_proc.h"
 #include "cvi_log_proc.h"
+int cvi_mmf_log_configfs_init(void);
+void cvi_mmf_log_configfs_exit(void);
 #include "cvi_sys_proc.h"
 #include <linux/cvi_base_ctx.h>
 #include <linux/semaphore.h>
@@ -96,8 +97,8 @@ CVI_U32 base_log_lv = CVI_BASE_DBG_ERR;
 module_param(base_log_lv, int, 0644);
 
 
-static ssize_t base_efuse_shadow_show(struct class *class,
-				      struct class_attribute *attr, char *buf)
+static ssize_t base_efuse_shadow_show(CVI_CLASS_CONST struct class *class,
+		CVI_CLASS_CONST struct class_attribute *attr, char *buf)
 {
 	int ret = 0;
 	UNUSED(class);
@@ -108,8 +109,8 @@ static ssize_t base_efuse_shadow_show(struct class *class,
 	return ret;
 }
 
-static ssize_t base_efuse_shadow_store(struct class *class,
-				       struct class_attribute *attr,
+static ssize_t base_efuse_shadow_store(CVI_CLASS_CONST struct class *class,
+			       CVI_CLASS_CONST struct class_attribute *attr,
 				       const char *buf, size_t count)
 {
 	unsigned long addr;
@@ -130,8 +131,8 @@ static ssize_t base_efuse_shadow_store(struct class *class,
 	return count;
 }
 
-static ssize_t base_efuse_prog_show(struct class *class,
-				    struct class_attribute *attr, char *buf)
+static ssize_t base_efuse_prog_show(CVI_CLASS_CONST struct class *class,
+		CVI_CLASS_CONST struct class_attribute *attr, char *buf)
 {
 	UNUSED(class);
 	UNUSED(attr);
@@ -139,8 +140,8 @@ static ssize_t base_efuse_prog_show(struct class *class,
 	return scnprintf(buf, PAGE_SIZE, "%s\n", "PROG_SHOW");
 }
 
-static ssize_t base_efuse_prog_store(struct class *class,
-				     struct class_attribute *attr,
+static ssize_t base_efuse_prog_store(CVI_CLASS_CONST struct class *class,
+			     CVI_CLASS_CONST struct class_attribute *attr,
 				     const char *buf, size_t count)
 {
 	int err;
@@ -159,8 +160,8 @@ static ssize_t base_efuse_prog_store(struct class *class,
 	return count;
 }
 
-static ssize_t base_uid_show(struct class *class,
-			     struct class_attribute *attr, char *buf)
+static ssize_t base_uid_show(CVI_CLASS_CONST struct class *class,
+		CVI_CLASS_CONST struct class_attribute *attr, char *buf)
 {
 	CVI_U32 uid_3 = 0xDEAFBEEF;
 	CVI_U32 uid_4 = 0xDEAFBEEF;
@@ -173,8 +174,8 @@ static ssize_t base_uid_show(struct class *class,
 	return scnprintf(buf, PAGE_SIZE, "UID: %08x_%08x\n", uid_3, uid_4);
 }
 
-static ssize_t base_rosc_show(struct class *class,
-			      struct class_attribute *attr, char *buf)
+static ssize_t base_rosc_show(CVI_CLASS_CONST struct class *class,
+		CVI_CLASS_CONST struct class_attribute *attr, char *buf)
 {
 	int count = 0;
 	void __iomem *rosc_base;
@@ -201,8 +202,8 @@ static ssize_t base_rosc_show(struct class *class,
 	return count;
 }
 
-static ssize_t base_rosc_store(struct class *class,
-			       struct class_attribute *attr,
+static ssize_t base_rosc_store(CVI_CLASS_CONST struct class *class,
+			       CVI_CLASS_CONST struct class_attribute *attr,
 			       const char *buf, size_t count)
 {
 	CVI_U32 chip_id;
@@ -422,7 +423,7 @@ static int base_open(struct inode *inode, struct file *filp)
 	INIT_LIST_HEAD(&ps->list);
 	ps->state_pid = get_pid(task_pid(current));
 	ps->cred = get_current_cred();
-	security_task_getsecid(current, &ps->secid);
+	CVI_SECURITY_GETSECID(&ps->secid);
 	/* memory barrier in smp case. */
 	smp_wmb();
 	/* replace the private data with base state */
@@ -695,7 +696,7 @@ static int set_power_hdler(struct base_device *ndev, char const *input)
 
 static ssize_t power_proc_write(struct file *file, const char __user *user_buf, size_t count, loff_t *ppos)
 {
-	struct base_device *ndev = PDE_DATA(file_inode(file));
+	struct base_device *ndev = pde_data(file_inode(file));
 	UNUSED(ppos);
 
 	set_power_hdler(ndev, user_buf);
@@ -705,7 +706,7 @@ static ssize_t power_proc_write(struct file *file, const char __user *user_buf, 
 
 static int proc_power_open(struct inode *inode, struct file *file)
 {
-	struct base_device *ndev = PDE_DATA(inode);
+	struct base_device *ndev = pde_data(inode);
 
 	return single_open(file, proc_power_show, ndev);
 }
@@ -906,12 +907,13 @@ static int base_remove(struct platform_device *pdev)
 
 	return 0;
 }
+CVI_DEFINE_PLATFORM_REMOVE_WRAPPER(base_remove);
 
 static const struct of_device_id cvi_base_dt_match[] = { { .compatible = "cvitek,base" }, {} };
 
 static struct platform_driver base_driver = {
 	.probe = base_probe,
-	.remove = base_remove,
+	.remove = CVI_PLATFORM_REMOVE_CALLBACK(base_remove),
 	.driver = {
 		.name = BASE_DEV_NAME,
 		.owner = THIS_MODULE,
@@ -935,7 +937,7 @@ static int __init base_init(void)
 
 	top_base = ioremap(TOP_BASE, TOP_REG_BANK_SIZE);
 
-	pbase_class = class_create(THIS_MODULE, BASE_CLASS_NAME);
+	pbase_class = CVI_CLASS_CREATE(BASE_CLASS_NAME);
 	if (IS_ERR(pbase_class)) {
 		CVI_TRACE_BASE(CVI_BASE_DBG_ERR, "create class failed\n");
 		rc = PTR_ERR(pbase_class);
@@ -967,6 +969,13 @@ static int __init base_init(void)
 	}
 
 	rc = platform_driver_register(&base_driver);
+	if (rc)
+		goto cleanup;
+	rc = cvi_mmf_log_configfs_init();
+	if (rc) {
+		platform_driver_unregister(&base_driver);
+		goto cleanup;
+	}
 	chip_id = cvi_base_read_chip_id();
 	pr_notice("CVITEK CHIP ID = %d\n", chip_id);
 
@@ -987,6 +996,7 @@ cleanup:
 
 static void __exit base_exit(void)
 {
+	cvi_mmf_log_configfs_exit();
 	platform_driver_unregister(&base_driver);
 	vb_cleanup();
 	base_cleanup();

@@ -68,6 +68,8 @@ typedef struct _stRcInfo_ {
 	BOOL isLastPicI;
 	int avbrChangeValidCnt;
 	int qDelta;
+	int lastFwTargetBitrate;
+	int lastFwMaxQp;
 	int picDciLvWindow[AVBR_MAX_BITRATE_WIN];
 	int periodDciLv;
 	int lastPeriodDciLv;

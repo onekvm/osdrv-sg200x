@@ -32,7 +32,7 @@ struct cvi_link {
 	unsigned int			crop_top;
 	unsigned int			distance_fp;
 	int				snsr_rst_pin;
-	enum of_gpio_flags		snsr_rst_pol;
+	unsigned int			snsr_rst_pol;
 	union {
 		struct cvi_csi_status	sts_csi;
 		struct cvi_lvds_status	sts_lvds;

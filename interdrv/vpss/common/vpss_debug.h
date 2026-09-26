@@ -2,6 +2,7 @@
 #define _VPSS_DEBUG_H_
 
 #include <linux/debugfs.h>
+#include <cvi_mmf_log.h>
 
 extern u32 vpss_log_lv;
 
@@ -14,7 +15,7 @@ extern u32 vpss_log_lv;
 #if defined(CONFIG_CVI_LOG)
 #define CVI_TRACE_VPSS(level, fmt, ...) \
 	do { \
-		if (level <= vpss_log_lv) { \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPSS, level)) { \
 			if (level == CVI_DBG_ERR) \
 				pr_err("%s:%d(): " fmt, __func__, __LINE__, ##__VA_ARGS__); \
 			else if (level == CVI_DBG_WARN) \

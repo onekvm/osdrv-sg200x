@@ -2,10 +2,10 @@ include $(PWD)/../Makefile.interdrv.param
 
 ifneq ($(KERNELRELEASE),)
 include $(PWD)/chip/$(CVIARCH_L)/chip.mk
-$(CVIARCH_L)_dwa-y += common/cvi_vip_gdc_proc.o
-$(CVIARCH_L)_dwa-y += common/dwa_platform.o
+soph_dwa-y += common/cvi_vip_gdc_proc.o
+soph_dwa-y += common/dwa_platform.o
 
-obj-m += $(CVIARCH_L)_dwa.o
+obj-m += soph_dwa.o
 #ccflags-y += -DPORTING_TEST
 ccflags-y += -I$(PWD)/chip/$(CVIARCH_L)/ -I$(PWD)/common/
 ccflags-y += -I$(PWD)/../include/common/uapi/ -I$(PWD)/../include/chip/$(CVIARCH_L)/uapi/
@@ -21,7 +21,6 @@ ccflags-y +=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
 
 KBUILD_EXTRA_SYMBOLS = $(PWD)/../base/Module.symvers
 KBUILD_EXTRA_SYMBOLS += $(PWD)/../sys/Module.symvers
-KBUILD_EXTRA_SYMBOLS += $(PWD)/../Module.symvers
 all:
 	$(MAKE) ARCH=${ARCH} -C $(KERNEL_DIR) M=$(PWD) modules
 

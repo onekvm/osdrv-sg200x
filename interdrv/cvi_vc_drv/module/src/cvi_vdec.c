@@ -1132,7 +1132,11 @@ CVI_S32 CVI_VDEC_SendStream(VDEC_CHN VdChn, const VDEC_STREAM_S *pstStream,
 		pVbCtx->currBindMode = CVI_TRUE;
 		pVbCtx->thread = kthread_run(vdec_event_handler,
 				(CVI_VOID *) pChnHandle, "cvitask_vdec_%d", VdChn);
-		sched_setscheduler(pVbCtx->thread, SCHED_RR, &param);
+		sched_setattr_nocheck(pVbCtx->thread, &(struct sched_attr) {
+			.size = sizeof(struct sched_attr),
+			.sched_policy = SCHED_RR,
+			.sched_priority = param.sched_priority,
+		});
 	}
 
 

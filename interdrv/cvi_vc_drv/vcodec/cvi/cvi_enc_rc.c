@@ -427,6 +427,8 @@ void cviEncRc_Open(stRcInfo *pRcInfo, EncOpenParam *pEncOP)
 						   pEncOP->avbrFrmGaps;
 
 	pRcInfo->maxIPicBit = -1;
+	pRcInfo->lastFwTargetBitrate = -1;
+	pRcInfo->lastFwMaxQp = -1;
 	// bitrate
 	cviEncRc_SetParam(pRcInfo, pEncOP, E_BITRATE);
 	cviEncRc_SetParam(pRcInfo, pEncOP, E_FRAMERATE);

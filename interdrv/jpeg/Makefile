@@ -1,6 +1,6 @@
 include $(PWD)/../Makefile.interdrv.param
 
-HAL_PATH = hal/$(CVIARCH_L)
+HAL_PATH = hal/cv181x
 
 CHIP_TYPE = CHIP_BM1880
 SUB_TYPE = ASIC_EVB
@@ -17,8 +17,8 @@ ccflags-y += $(DEBFLAGS) -I$(PWD) -I$(LDDINCDIR) -D$(CHIP_TYPE) -D$(SUB_TYPE) -D
 KBUILD_EXTRA_SYMBOLS += $(PWD)/../vcodec/Module.symvers
 
 # PWD	:= $(shell pwd)
-obj-m += $(CVIARCH_L)_jpeg.o
-$(CVIARCH_L)_jpeg-y += cvi_jpeg.o jpeg_common.o jmm.o hal/$(CVIARCH_L)/cvi_jpeg_cfg.o
+obj-m += soph_jpeg.o
+soph_jpeg-y += cvi_jpeg.o jpeg_common.o jmm.o hal/cv181x/cvi_jpeg_cfg.o
 
 all:
 	$(MAKE) ARCH=${ARCH} -C $(KERNEL_DIR) M=$(PWD) modules

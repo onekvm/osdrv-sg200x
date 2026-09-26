@@ -2,6 +2,7 @@
 #define __VO_COMMON_H__
 
 #include <linux/debugfs.h>
+#include <cvi_mmf_log.h>
 
 #ifdef __cplusplus
 	extern "C" {
@@ -22,7 +23,7 @@ extern u32 vo_log_lv;
 #if defined(CONFIG_CVI_LOG)
 #define CVI_TRACE_VO(level, fmt, ...) \
 	do { \
-		if (vo_log_lv >= level) { \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VO, level)) { \
 			if (level == CVI_DBG_ERR) \
 				pr_err("%s:%d(): " fmt, __func__, __LINE__, ##__VA_ARGS__); \
 			else if (level == CVI_DBG_WARN) \

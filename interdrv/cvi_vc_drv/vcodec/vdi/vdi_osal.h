@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/printk.h>
+#include <cvi_mmf_log.h>
 #include <linux/vmalloc.h>
 #include <linux/io.h>
 #include "sys.h"
@@ -60,160 +61,160 @@ extern unsigned int vcodec_mask;
 #ifdef LOG_WITH_FUNC_NAME
 #define CVI_VC_ERR(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_ERR) {                              \
-			pr_info("[ERR] %s = %d, " msg, __func__, __LINE__,     \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 1)) {                              \
+			pr_err("[ERR] %s = %d, " msg, __func__, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_WARN(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_WARN) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 2)) {                             \
 			pr_warn("[WARN] %s = %d, " msg, __func__, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_INFO(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_INFO) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 4)) {                             \
 			pr_info("[INFO] %s = %d, " msg, __func__, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_FLOW(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_FLOW) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                             \
 			pr_info("[FLOW] %s = %d, " msg, __func__, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_DBG(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_DBG) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[DBG] %s = %d, " msg, __func__, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_INTR(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_INTR) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                             \
 			pr_info("[INTR] %s = %d, " msg, __func__, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_MCU(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_MCU) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[MCU] %s = %d, " msg, __func__, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_MEM(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_MEM) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[MEM] %s = %d, " msg, __func__, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_BS(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_BS) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[BS] %s = %d, " msg, __func__, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_SRC(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_SRC) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[SRC] %s = %d, " msg, __func__, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_IF(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_IF) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[IF] %s = %d, " msg, __func__, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_LOCK(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_LOCK) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                             \
 			pr_info("[LOCK] %s = %d, " msg, __func__, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_PERF(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_PERF) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                             \
 			pr_info("[PERF] %s = %d, " msg, __func__, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_CFG(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_CFG) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[CFG] %s = %d, " msg, __func__, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_RC(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_RC) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[RC] %s = %d, " msg, __func__, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_TRACE(msg, ...)                                                 \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_TRACE) {                            \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                            \
 			pr_info("[TRACE] %s = %d, " msg, __func__, __LINE__,   \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_DISP(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_DISP) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                             \
 			pr_info("[DISP] %s = %d, " msg, __func__, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_MOTMAP(msg, ...)                                                \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_MOTMAP) {                           \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                           \
 			pr_info(msg, ##__VA_ARGS__);                           \
 		}                                                              \
 	} while (0)
 #define CVI_VC_UBR(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_UBR) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[UBR] %s = %d, " msg, __func__, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_RQ(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_RQ) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[RQ] %s = %d, " msg, __func__, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_CVRC(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_CVRC) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[CVRC] %s = %d, " msg, __func__, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_AR(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_AR) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[AR] %s = %d, " msg, __func__, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_REG(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_REG) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[REG] %s = %d, " msg, __func__, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
@@ -222,160 +223,160 @@ extern unsigned int vcodec_mask;
 #ifndef VC_DEBUG_BASIC_LEVEL
 #define CVI_VC_ERR(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_ERR) {                              \
-			pr_info("[ERR] %d, " msg, __LINE__,     \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 1)) {                              \
+			pr_err("[ERR] %d, " msg, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_WARN(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_WARN) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 2)) {                             \
 			pr_warn("[WARN] %d, " msg, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_INFO(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_INFO) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 4)) {                             \
 			pr_info("[INFO] %d, " msg, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_FLOW(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_FLOW) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                             \
 			pr_info("[FLOW] %d, " msg, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_DBG(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_DBG) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[DBG] %d, " msg, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_INTR(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_INTR) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                             \
 			pr_info("[INTR] %d, " msg, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_MCU(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_MCU) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[MCU] %d, " msg, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_MEM(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_MEM) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[MEM] %d, " msg, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_BS(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_BS) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[BS] %d, " msg, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_SRC(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_SRC) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[SRC] %d, " msg, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_IF(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_IF) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[IF] %d, " msg, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_LOCK(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_LOCK) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                             \
 			pr_info("[LOCK] %d, " msg, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_PERF(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_PERF) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                             \
 			pr_info("[PERF] %d, " msg, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_CFG(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_CFG) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[CFG] %d, " msg, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_RC(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_RC) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[RC] %d, " msg, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_TRACE(msg, ...)                                                 \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_TRACE) {                            \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                            \
 			pr_info("[TRACE] %d, " msg, __LINE__,   \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_DISP(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_DISP) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                             \
 			pr_info("[DISP] %d, " msg, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_MOTMAP(msg, ...)                                                \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_MOTMAP) {                           \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                           \
 			pr_info(msg, ##__VA_ARGS__);                           \
 		}                                                              \
 	} while (0)
 #define CVI_VC_UBR(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_UBR) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[UBR] %d, " msg, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_RQ(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_RQ) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[RQ] %d, " msg, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_CVRC(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_CVRC) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[CVRC] %d, " msg, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_AR(msg, ...)                                                    \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_AR) {                               \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                               \
 			pr_info("[AR] %d, " msg, __LINE__,      \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_REG(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_REG) {                              \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 5)) {                              \
 			pr_info("[REG] %d, " msg, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
@@ -383,14 +384,14 @@ extern unsigned int vcodec_mask;
 #else
 #define CVI_VC_ERR(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_ERR) {                              \
-			pr_info("[ERR] %d, " msg, __LINE__,     \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 1)) {                              \
+			pr_err("[ERR] %d, " msg, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
 #define CVI_VC_WARN(msg, ...)                                                  \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_WARN) {                             \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 2)) {                             \
 			pr_warn("[WARN] %d, " msg, __LINE__,    \
 				##__VA_ARGS__);                                \
 		}                                                              \
@@ -422,8 +423,8 @@ extern unsigned int vcodec_mask;
 #define CVI_FUNC_COND(FLAG, FUNC)
 #define CVI_VC_ERR(msg, ...)                                                   \
 	do {                                                                   \
-		if (vcodec_mask & CVI_MASK_ERR) {                              \
-			pr_info("[ERR] %s = %d, " msg, __func__, __LINE__,     \
+		if (cvi_mmf_log_enabled(CVI_MMF_LOG_VPU, 1)) {                              \
+			pr_err("[ERR] %s = %d, " msg, __func__, __LINE__,     \
 				##__VA_ARGS__);                                \
 		}                                                              \
 	} while (0)
