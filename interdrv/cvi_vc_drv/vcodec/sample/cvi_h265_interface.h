@@ -190,7 +190,10 @@ typedef struct _cviBufInfo {
 	int size;
 } cviBufInfo;
 
-#define MAX_NUM_PACKS 12
+/* Keep enough internal queue slots for one userspace-owned batch plus the
+ * cached H.264/H.265 parameter sets emitted for a concurrent IDR request.
+ * This is private driver state; the public VENC API queries the count. */
+#define MAX_NUM_PACKS 32
 #define H26X_BLOCK_MODE (-1)
 #define RET_VDEC_LOCK_TIMEOUT (-2)
 
