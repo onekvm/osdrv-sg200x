@@ -98,6 +98,19 @@ int vi_sdk_qbuf(MMF_CHN_S chn)
 			   , &((struct vb_s *)blk)->buf
 			   , vb_handle2PhysAddr(blk)
 			   , DEFAULT_ALIGN);
+	/* The YUV bypass DMA advances by a 16-byte-aligned packed line, while
+	 * base_get_frame_info describes the 64-byte-aligned VB allocation.  At
+	 * 720 pixels those are 1440 and 1472 bytes respectively; handing 1472
+	 * to VPSS makes every line start 16 pixels late and wraps every 45 lines.
+	 * Keep the larger allocation, but publish the stride actually written by
+	 * the bypass DMA.  Rotation/LDC use a different output path. */
+	if (gViCtx->enRotation[chn.s32ChnId] == ROTATION_0 &&
+	    !gViCtx->stLDCAttr[chn.s32ChnId].bEnable &&
+	    (gViCtx->chnAttr[chn.s32ChnId].enPixelFormat == PIXEL_FORMAT_YUYV ||
+	     gViCtx->chnAttr[chn.s32ChnId].enPixelFormat == PIXEL_FORMAT_YVYU ||
+	     gViCtx->chnAttr[chn.s32ChnId].enPixelFormat == PIXEL_FORMAT_UYVY ||
+	     gViCtx->chnAttr[chn.s32ChnId].enPixelFormat == PIXEL_FORMAT_VYUY))
+		((struct vb_s *)blk)->buf.stride[0] = ALIGN(size.u32Width * 2, 16);
 
 	((struct vb_s *)blk)->buf.s16OffsetTop = 0;
 	((struct vb_s *)blk)->buf.s16OffsetRight = size.u32Width - gViCtx->chnAttr[chn.s32ChnId].stSize.u32Width;
@@ -1700,4 +1713,3 @@ long vi_sdk_ctrl(struct cvi_vi_dev *vdev, struct vi_ext_control *p)
 
 	return rc;
 }
-
