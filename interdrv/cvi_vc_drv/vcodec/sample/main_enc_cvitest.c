@@ -48,6 +48,7 @@
 #define INIT_TEST_ENCODER_OK 10
 #define YUV_NAME "../img/3-1920x1080.yuv"
 #define BS_NAME "CVISDK"
+#define VENC_KTHREAD_STOP_POLL_MS 100
 
 #define SECONDARY_AXI_H264 0xf
 #define SECONDARY_AXI_H265 0x7
@@ -2476,6 +2477,35 @@ static int cviHandlePartialBitstream(stTestEncoder *pTestEnc, BOOL bStreamEnd)
 }
 #endif
 
+static int cviCancelPendingEncode(stTestEncoder *pTestEnc)
+{
+	CodecInst *handle = pTestEnc->handle;
+	const int coreIdx = pTestEnc->coreIdx;
+	RetCode ret;
+
+	if (GetPendingInst(coreIdx) != handle) {
+		CVI_VC_ERR("refuse VENC cancellation without matching pending instance\n");
+		return TE_ERR_ENC_OPEN;
+	}
+
+	ret = VPU_SWReset(coreIdx, SW_RESET_SAFETY, handle);
+	if (ret != RETCODE_SUCCESS) {
+		/* VPU_SWReset clears pendingInst before attempting the hardware reset.
+		 * Restore it on failure so another channel cannot reuse a core whose
+		 * in-flight encode was not confirmed stopped. */
+		if (GetPendingInst(coreIdx) == NULL)
+			SetPendingInst(coreIdx, handle, __func__, __LINE__);
+		CVI_VC_ERR("safe VENC cancellation reset failed, ret = %d\n", ret);
+		return TE_ERR_ENC_OPEN;
+	}
+
+	/* The reset aborted the initialized sequence.  VPU_EncClose() must only
+	 * release the software instance; sending ENC_SEQ_END after this reset can
+	 * leave Coda9 permanently busy across a service restart. */
+	handle->CodecInfo->encInfo.initialInfoObtained = FALSE;
+	return TE_STA_ENC_BREAK;
+}
+
 static int cviGetEncodedInfo(stTestEncoder *pTestEnc, int s32MilliSec)
 {
 	EncParam *pEncParam = &pTestEnc->encParam;
@@ -2485,16 +2515,28 @@ static int cviGetEncodedInfo(stTestEncoder *pTestEnc, int s32MilliSec)
 	int ret = RETCODE_SUCCESS;
 	static Uint32 enc_cnt;
 	CodStd curCodec;
+	const BOOL cancellable_wait =
+		s32MilliSec == TIME_BLOCK_MODE && (current->flags & PF_KTHREAD);
+	const int interrupt_wait_ms = cancellable_wait
+		? VENC_KTHREAD_STOP_POLL_MS : s32MilliSec;
 	EncHandle handle = pTestEnc->handle;
 
 	UNUSED(enc_cnt);
 	while (1) {
-		int_reason = VPU_WaitInterrupt(coreIdx, s32MilliSec);
+		if (cancellable_wait && kthread_should_stop())
+			return cviCancelPendingEncode(pTestEnc);
+
+		int_reason = VPU_WaitInterrupt(coreIdx, interrupt_wait_ms);
 
 		CVI_VC_TRACE("int_reason = 0x%X, timeoutCount = %d\n",
 			     int_reason, timeoutCount);
 
 		if (int_reason == -1) {
+			if (cancellable_wait) {
+				if (kthread_should_stop())
+					return cviCancelPendingEncode(pTestEnc);
+				continue;
+			}
 			if (s32MilliSec >= 0) {
 				CVI_VC_ERR(
 					"Error : encoder timeout happened in non_block mode\n");

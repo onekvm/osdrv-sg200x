@@ -3238,6 +3238,24 @@ RetCode VPU_EncGetInitialInfo(EncHandle handle, EncInitialInfo *info)
 	ret = ProductVpuEncSetup(pCodecInst);
 	if (ret != RETCODE_SUCCESS) {
 		CVI_VC_ERR("ProductVpuEncSetup ret error %d\n", ret);
+		/* ProductVpuEncSetup leaves this instance pending on timeout.  The
+		 * normal init-error cleanup immediately calls VPU_EncClose(), which
+		 * otherwise spins forever waiting for its own pending marker. */
+		if (GetPendingInst(pCodecInst->coreIdx) == pCodecInst) {
+			RetCode reset = VPU_SWReset(pCodecInst->coreIdx,
+						    SW_RESET_SAFETY, pCodecInst);
+			if (reset != RETCODE_SUCCESS) {
+				/* Preserve ownership when reset did not confirm that the
+				 * in-flight command stopped. */
+				if (GetPendingInst(pCodecInst->coreIdx) == NULL)
+					SetPendingInst(pCodecInst->coreIdx, pCodecInst,
+						       __func__, __LINE__);
+				CVI_VC_ERR("sequence-init recovery reset failed %d\n",
+					   reset);
+			} else {
+				pEncInfo->initialInfoObtained = FALSE;
+			}
+		}
 		return ret;
 	}
 
