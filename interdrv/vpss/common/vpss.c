@@ -1774,6 +1774,14 @@ void _vpss_grp_hw_cfg_update(VPSS_GRP VpssGrp, struct cvi_vpss_ctx *ctx, struct 
 		, COMPRESS_MODE_NONE, DEFAULT_ALIGN, &stVbCalConfig);
 	pstGrpHwCfg->bytesperline[0] = stVbCalConfig.u32MainStride;
 	pstGrpHwCfg->bytesperline[1] = stVbCalConfig.u32CStride;
+	/* VI's packed YUV bypass writes 16-byte-aligned lines.  The generic
+	 * buffer size above uses 64-byte alignment, which is only the allocation
+	 * pitch; feeding it to the online scaler shears 720-wide HDMI frames. */
+	if (ctx->stGrpAttr.enPixelFormat == PIXEL_FORMAT_UYVY ||
+	    ctx->stGrpAttr.enPixelFormat == PIXEL_FORMAT_YUYV ||
+	    ctx->stGrpAttr.enPixelFormat == PIXEL_FORMAT_YVYU ||
+	    ctx->stGrpAttr.enPixelFormat == PIXEL_FORMAT_VYUY)
+		pstGrpHwCfg->bytesperline[0] = ALIGN(ctx->stGrpAttr.u32MaxW * 2, 16);
 
 	// frame_crop applied if valid
 	if (_is_frame_crop_valid(ctx)) {
