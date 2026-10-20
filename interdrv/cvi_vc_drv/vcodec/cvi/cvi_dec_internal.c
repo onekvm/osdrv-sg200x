@@ -1042,6 +1042,16 @@ int _cviH264_AllocFrmBuf(cviVideoDecoder *pvdec)
 	RetCode ret;
 	char ionName[MAX_VPU_ION_BUFFER_NAME];
 
+	/* Bound stream-supplied dimensions and frame counts before buffer
+	 * arithmetic. This path allocates 8-bit planar pictures. */
+	if (!pSeqInfo->picWidth || !pSeqInfo->picHeight ||
+	    pSeqInfo->picWidth > 2880 || pSeqInfo->picHeight > 1632 ||
+	    (Uint64)pSeqInfo->picWidth * pSeqInfo->picHeight > 2880 * 1632 ||
+	    !pSeqInfo->minFrameBufferCount ||
+	    pSeqInfo->minFrameBufferCount > MAX_REG_FRAME - EXTRA_FRAME_BUFFER_NUM ||
+	    pSeqInfo->lumaBitdepth > 8 || pSeqInfo->chromaBitdepth > 8)
+		return CVI_ERR_DECODE_END;
+
 	/********************************************************************************
 	 * ALLOCATE RECON FRAMEBUFFERS *
 	 ********************************************************************************/

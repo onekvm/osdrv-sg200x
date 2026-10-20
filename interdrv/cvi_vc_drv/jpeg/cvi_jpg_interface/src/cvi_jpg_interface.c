@@ -93,6 +93,10 @@ CVIJpgHandle CVIJpgOpen(CVIJpgConfig config)
 		}
 	}
 
+	if (ret != JPG_RET_SUCCESS || !handle) {
+		JpgLeaveLock();
+		return NULL;
+	}
 	pJpgInst = (JpgInst *)handle;
 	pJpgInst->s32ChnNum = config.s32ChnNum;
 
@@ -282,6 +286,11 @@ int CVIJpgReleaseFrameData(CVIJpgHandle jpgHandle)
 		JpgLeaveLock();
 		return -1;
 	}
+
+	/* Decoder GetFrameData already releases the transaction lock and its
+	 * union contains no encoder stream pointer. */
+	if (pJpgInst->type == CVIJPGCOD_DEC)
+		return JPG_RET_SUCCESS;
 
 	pEncInfo = &pJpgInst->JpgInfo.encInfo;
 	if (pEncInfo->pFinalStream) {

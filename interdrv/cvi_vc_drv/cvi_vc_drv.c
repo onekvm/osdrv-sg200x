@@ -6,6 +6,7 @@
 
 #include "cvi_vc_drv.h"
 #include "cvi_vc_drv_proc.h"
+#include "cvi_vdec_v4l2.h"
 #include "vcodec_cb.h"
 #include "vdi_osal.h"
 
@@ -1647,6 +1648,7 @@ static int cvi_vc_drv_probe(struct platform_device *pdev)
 		pr_err("Failed to register vcodec cb, err %d\n", err);
 		goto ERROR_PROBE_DEVICE;
 	}
+	cvi_vdec_v4l2_register(dev);
 
 	return 0;
 
@@ -1666,6 +1668,8 @@ ERROR_PROBE_DEVICE:
 static int cvi_vc_drv_remove(struct platform_device *pdev)
 {
 	struct cvi_vc_drv_device *vdev = platform_get_drvdata(pdev);
+
+	cvi_vdec_v4l2_unregister();
 
 	if (vdev->s_venc_major > 0) {
 		int i = 0;

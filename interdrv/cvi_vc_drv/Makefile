@@ -82,6 +82,9 @@ soph_vc_driver-objs :=	$(COMMON_PATH)/rcKernel/cvi_rc_kernel.o	\
 
 obj-m = soph_vc_driver.o
 soph_vc_driver-objs += board-compat.o
+ifneq ($(filter y m,$(CONFIG_VIDEO_SOPHGO_VDEC)),)
+soph_vc_driver-objs += cvi_vdec_v4l2.o
+endif
 
 ccflags-y += -I$(PWD)/../include/common/uapi/ -I$(PWD)/../include/chip/$(CVIARCH_L)/uapi/
 ccflags-y += -I$(PWD)/../include/common/kapi/

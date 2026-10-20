@@ -583,7 +583,7 @@ int cviJpgDecSendFrameData(CVIJpgHandle handle, void *data, int length)
 JPU_END_OF_STREAM:
 SEND_DEC_DATA_ERR:
 	pJpgInst->u64EndTime = jpgGetCurrentTime();
-	return JPG_RET_SUCCESS;
+	return ret;
 }
 
 int cviJpgDecGetFrameData(CVIJpgHandle jpgHandle, void *data)
@@ -605,7 +605,7 @@ int cviJpgDecGetFrameData(CVIJpgHandle jpgHandle, void *data)
 	/* check handle valid */
 	ret = CheckJpgInstValidity((JpgDecHandle)jpgHandle);
 	if (ret != JPG_RET_SUCCESS)
-		return ret;
+		goto GET_DEC_DATA_ERR;
 
 	ret = JPU_DecGetOutputInfo((JpgDecHandle)jpgHandle, &outputInfo);
 
@@ -615,8 +615,11 @@ int cviJpgDecGetFrameData(CVIJpgHandle jpgHandle, void *data)
 		goto GET_DEC_DATA_ERR;
 	}
 
-	if (outputInfo.decodingSuccess == 0)
+	if (outputInfo.decodingSuccess == 0) {
 		pr_err("JPU_DecGetOutputInfo decode fail\n");
+		ret = JPG_RET_FAILURE;
+		goto GET_DEC_DATA_ERR;
+	}
 
 #ifdef CVIDEBUG_V
 	JLOG(TRACE,
