@@ -90,6 +90,7 @@ static void venc_stop_bind_thread(struct cvi_venc_vb_ctx *pVbCtx,
 	struct task_struct *thread;
 
 	pChnHandle->bChnEnable = CVI_FALSE;
+	/* Input/start waits have no timer. Wake them before joining the worker. */
 	SEMA_POST(&pVbCtx->vb_jobs.sem);
 	SEMA_POST(&pChnVars->sem_send);
 	thread = xchg(&pVbCtx->thread, NULL);
@@ -445,20 +446,15 @@ static int venc_event_handler(CVI_VOID *data)
 		VENC_SET_HANDLER_STATE(3);
 		CVI_VENC_DEBUG("venc_handle chn:%d wait.\n", VencChn);
 
-		while (((ret = SEMA_TIMEWAIT(&pVbCtx->vb_jobs.sem,
-						usecs_to_jiffies(1000 * 1000))) != 0)) {
-			if (pChnHandle->bChnEnable == CVI_FALSE) {
-				break;
-			}
-			continue;
-		}
-		if (pChnHandle->bChnEnable == CVI_FALSE) {
+		/* New input and venc_stop_bind_thread() both post this semaphore.
+		 * An empty input queue is an interruptible event wait, not a timed
+		 * uninterruptible wait that contributes to the idle load average.
+		 */
+		ret = SEMA_WAIT(&pVbCtx->vb_jobs.sem);
+		if (ret || kthread_should_stop() || !READ_ONCE(pChnHandle->bChnEnable)) {
 			CVI_VENC_SYNC("end\n");
 			break;
 		}
-
-		if (ret == -1)
-			continue;
 
 		if (pVbCtx->pause) {
 			CVI_VENC_TRACE("pause and skip update.\n");
@@ -697,19 +693,12 @@ static int h26x_event_handler(CVI_VOID *data)
 		VENC_SET_HANDLER_STATE(3);
 		CVI_VENC_DEBUG("h26x_handle chn:%d wait.\n", VencChn);
 
-		while (((ret = SEMA_TIMEWAIT(&pVbCtx->vb_jobs.sem, usecs_to_jiffies(1000 * 1000))) != 0)) {
-			if (pChnHandle->bChnEnable == CVI_FALSE)
-				break;
-
-			continue;
-		}
-		if (pChnHandle->bChnEnable == CVI_FALSE) {
+		/* The asynchronous handler uses the same input/stop event contract. */
+		ret = SEMA_WAIT(&pVbCtx->vb_jobs.sem);
+		if (ret || kthread_should_stop() || !READ_ONCE(pChnHandle->bChnEnable)) {
 			CVI_VENC_SYNC("end\n");
 			break;
 		}
-
-		if (ret == -1)
-			continue;
 
 		if (pVbCtx->pause) {
 			CVI_VENC_TRACE("pause and skip update.\n");

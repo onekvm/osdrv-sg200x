@@ -29,6 +29,7 @@
 #include "cvi_vcodec_lib.h"
 #include <linux/kthread.h>
 #include "cvi_vc_drv.h"
+#include "cvi_vdec_v4l2.h"
 #include "cvi_vc_getopt.h"
 
 #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
@@ -1153,7 +1154,7 @@ static int cviEncodeOneFrame(stTestEncoder *pTestEnc)
 	void *pYuvFeeder = pTestEnc->yuvFeeder;
 #endif
 	int coreIdx = pTestEnc->coreIdx;
-	int ret = 0, i;
+	int ret = 0;
 	feederYuvaddr *pYuvAddr;
 	CodecInst *pCodecInst;
 
@@ -1231,13 +1232,10 @@ RETRY:
 		return RETCODE_FAILURE;
 	}
 
-#if (defined CVI_H26X_USE_ION_MEM && defined BITSTREAM_ION_CACHED_MEM)
-	for (i = 0; i < (int)pTestEnc->bsBufferCount; i++) {
-		if (pTestEnc->vbStream[i].size != 0)
-			vdi_invalidate_ion_cache(pTestEnc->vbStream[i].phys_addr,
-			pTestEnc->vbStream[i].virt_addr, pTestEnc->vbStream[i].size);
-	}
-#endif
+	/* The VPU writes the bitstream. GetStream and the partial-bitstream
+	 * rotate path already invalidate the bytes they copy, and a rotate
+	 * flushes what it writes back. Invalidating the whole buffer here
+	 * walks 1 MiB on every frame. */
 
 #if REPEAT_SPS
 	if (pEncParam->is_idr_frame == TRUE) {
@@ -5729,7 +5727,7 @@ static int initMcuEnv(TestEncConfig *pEncConfig)
 	return INIT_TEST_ENCODER_OK;
 }
 
-void *cviVEncOpen(cviInitEncConfig *pInitEncCfg)
+static void *cviVEncOpenInternal(cviInitEncConfig *pInitEncCfg)
 {
 	stTestEncoder *pTestEnc = NULL;
 	int ret = 0;
@@ -5767,6 +5765,17 @@ void *cviVEncOpen(cviInitEncConfig *pInitEncCfg)
 ERR_CVI_VENC_OPEN:
 
 	return (void *)pTestEnc;
+}
+
+void *cviVEncOpen(cviInitEncConfig *pInitEncCfg)
+{
+	void *handle;
+
+	if (cvi_vdec_v4l2_encoder_begin(pInitEncCfg->codec))
+		return NULL;
+	handle = cviVEncOpenInternal(pInitEncCfg);
+	cvi_vdec_v4l2_encoder_end(pInitEncCfg->codec, handle != NULL);
+	return handle;
 }
 
 int cviVEncClose(void *handle)
@@ -5822,6 +5831,7 @@ int cviVEncClose(void *handle)
 
 	LeaveVcodecLock(pTestEnc->coreIdx);
 
+	cvi_vdec_v4l2_encoder_closed(pTestEnc->encConfig.stdMode == STD_HEVC);
 	if (pTestEnc)
 		osal_free(pTestEnc);
 
