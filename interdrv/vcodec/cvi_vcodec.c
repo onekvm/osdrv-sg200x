@@ -37,6 +37,10 @@
 #include "cvi_vcodec.h"
 #include "vcodec_common.h"
 
+static bool gator_annotations;
+module_param(gator_annotations, bool, 0644);
+MODULE_PARM_DESC(gator_annotations, "Enable optional Gator VENC markers");
+
 /* definitions to be changed as customer  configuration */
 /* if you want to have clock gating scheme frame by frame */
 //#define VPU_SUPPORT_CLOCK_CONTROL
@@ -546,7 +550,7 @@ int vpu_wait_interrupt(vpudrv_intr_info_t *p_intr_info)
 		return ret;
 	}
 
-	ANNOTATE_CHANNEL_COLOR(1, ANNOTATE_GREEN, "vcodec end");
+	if (READ_ONCE(gator_annotations)) { ANNOTATE_CHANNEL_COLOR(1, ANNOTATE_GREEN, "vcodec end"); }
 	if (signal_pending(current)) {
 		ret = -ERESTARTSYS;
 		return ret;
@@ -569,8 +573,10 @@ int vpu_wait_interrupt(vpudrv_intr_info_t *p_intr_info)
 	enable_irq(pvctx->s_vcodec_irq);
 #endif
 
-	ANNOTATE_CHANNEL_END(1);
-	ANNOTATE_NAME_CHANNEL(1, 1, "vcodec end");
+	if (READ_ONCE(gator_annotations)) {
+		ANNOTATE_CHANNEL_END(1);
+		ANNOTATE_NAME_CHANNEL(1, 1, "vcodec end");
+	}
 
 	return ret;
 }

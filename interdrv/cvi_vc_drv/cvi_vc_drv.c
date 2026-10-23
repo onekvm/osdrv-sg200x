@@ -9,6 +9,7 @@
 #include "cvi_vdec_v4l2.h"
 #include "vcodec_cb.h"
 #include "vdi_osal.h"
+#include "cvi_h265_interface.h"
 
 extern int VPU_IsBusy(unsigned int coreIdx);
 
@@ -28,6 +29,14 @@ module_param(MaxVdecChnNum, uint, 0644);
 #endif
 bool cviRcEn = 1;
 module_param(cviRcEn, bool, 0644);
+
+static bool prealloc_ioctl_packs = true;
+module_param(prealloc_ioctl_packs, bool, 0444);
+MODULE_PARM_DESC(prealloc_ioctl_packs, "Reuse per-open encoder ioctl stream descriptors");
+
+struct cvi_venc_file {
+	VENC_PACK_S packs[MAX_NUM_PACKS];
+};
 
 static struct semaphore vencSemArry[VENC_MAX_CHN_NUM];
 #ifdef ENABLE_DEC
@@ -81,6 +90,15 @@ const struct file_operations cvi_vc_drv_vdec_fops = {
 static int cvi_vc_drv_open(struct inode *inode, struct file *filp)
 {
 	unsigned int minor = iminor(inode);
+
+	/* Decoder opens use the same callback but do not own encoder scratch.
+	 * The existing per-channel ioctl semaphore serializes all users of this
+	 * file, including dup() and threads sharing the same open description. */
+	if (filp->f_op == &cvi_vc_drv_venc_fops && prealloc_ioctl_packs) {
+		filp->private_data = kzalloc(sizeof(struct cvi_venc_file), GFP_KERNEL);
+		if (!filp->private_data)
+			return -ENOMEM;
+	}
 
 	pr_info("open channel no. %u\n", minor);
 
@@ -192,6 +210,7 @@ static long cvi_vc_drv_venc_ioctl(struct file *filp, u_int cmd, u_long arg)
 #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
 		VENC_STREAM_S stStream;
 		VENC_PACK_S *pUserPack; // keep user space pointer on packs
+		struct cvi_venc_file *context = filp->private_data;
 #endif
 
 		if (copy_from_user(&stStreamEx, (VENC_STREAM_EX_S *)arg,
@@ -209,8 +228,13 @@ static long cvi_vc_drv_venc_ioctl(struct file *filp, u_int cmd, u_long arg)
 		// in CVI_VENC_GetStream
 		pUserPack = stStream.pstPack;
 		stStream.pstPack = NULL;
-		s32Ret = CVI_VENC_GetStream(minor, &stStream,
-					    stStreamEx.s32MilliSec);
+		if (context)
+			s32Ret = CVI_VENC_GetStreamInto(minor, &stStream,
+				stStreamEx.s32MilliSec, context->packs,
+				ARRAY_SIZE(context->packs));
+		else
+			s32Ret = CVI_VENC_GetStream(minor, &stStream,
+						    stStreamEx.s32MilliSec);
 #else
 		s32Ret = CVI_VENC_GetStream(minor, stStreamEx.pstStream,
 					    stStreamEx.s32MilliSec);
@@ -218,7 +242,7 @@ static long cvi_vc_drv_venc_ioctl(struct file *filp, u_int cmd, u_long arg)
 
 		if (s32Ret != CVI_SUCCESS) {
 #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
-			if (stStream.pstPack) {
+			if (!context && stStream.pstPack) {
 				vfree(stStream.pstPack);
 				stStream.pstPack = NULL;
 			}
@@ -229,11 +253,17 @@ static long cvi_vc_drv_venc_ioctl(struct file *filp, u_int cmd, u_long arg)
 #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
 		// copy kernel space packs to user space
 		if (stStream.pstPack) {
+			if (stStream.u32PackCount > MAX_NUM_PACKS) {
+				if (!context)
+					vfree(stStream.pstPack);
+				s32Ret = CVI_ERR_VENC_ILLEGAL_PARAM;
+				break;
+			}
 			if (copy_to_user(pUserPack, stStream.pstPack,
 					 sizeof(VENC_PACK_S) *
 					 stStream.u32PackCount) != 0) {
 
-				if (stStream.pstPack) {
+				if (!context) {
 					vfree(stStream.pstPack);
 					stStream.pstPack = NULL;
 				}
@@ -242,7 +272,7 @@ static long cvi_vc_drv_venc_ioctl(struct file *filp, u_int cmd, u_long arg)
 				break;
 			}
 
-			if (stStream.pstPack) {
+			if (!context) {
 				vfree(stStream.pstPack);
 				stStream.pstPack = NULL;
 			}
@@ -1350,6 +1380,9 @@ static int cvi_vc_drv_release(struct inode *inode, struct file *filp)
 {
 	unsigned int minor = iminor(inode);
 
+	/* release runs after the last file reference, including active ioctls. */
+	kfree(filp->private_data);
+	filp->private_data = NULL;
 	pr_info("close channel no. %u\n", minor);
 	return 0;
 }

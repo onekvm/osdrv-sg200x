@@ -42,6 +42,11 @@
 #define CLK_ENABLE_REG_2_BASE (0x03002008)
 #define VC_FAB_REG_9_BASE (0xb030024)
 
+/* Immutable while loaded: ownership cannot change underneath a bind worker. */
+static bool prealloc_bind_packs = true;
+module_param(prealloc_bind_packs, bool, 0444);
+MODULE_PARM_DESC(prealloc_bind_packs, "Reuse per-channel synchronous bind stream descriptors");
+
 // below should align to cv183x_vcodec.h
 #define VPU_MISCDEV_NAME "/dev/cvi-vcodec"
 #define VCODEC_VENC_SHARE_MEM_SIZE (0x30000) // 192k
@@ -540,8 +545,15 @@ static int venc_event_handler(CVI_VOID *data)
 			goto VENC_EVENT_HANDLER_ERR;
 		}
 		VENC_SET_HANDLER_STATE(10);
-		pChnVars->stStream.pstPack = (VENC_PACK_S *)MEM_MALLOC(
-			sizeof(VENC_PACK_S) * stStat.u32CurPacks);
+		if (stStat.u32CurPacks > ARRAY_SIZE(pChnVars->bindPacks)) {
+			s32Ret = CVI_ERR_VENC_ILLEGAL_PARAM;
+			goto VENC_EVENT_HANDLER_ERR;
+		}
+		if (prealloc_bind_packs)
+			pChnVars->stStream.pstPack = pChnVars->bindPacks;
+		else
+			pChnVars->stStream.pstPack = (VENC_PACK_S *)MEM_MALLOC(
+				sizeof(VENC_PACK_S) * stStat.u32CurPacks);
 		if (pChnVars->stStream.pstPack == NULL) {
 			CVI_VENC_ERR("malloc memory failed!\n");
 			s32Ret = CVI_ERR_VENC_NOMEM;
@@ -596,7 +608,8 @@ static int venc_event_handler(CVI_VOID *data)
 			goto VENC_EVENT_HANDLER_ERR_2;
 		}
 
-		MEM_FREE(pChnVars->stStream.pstPack);
+		if (!prealloc_bind_packs)
+			MEM_FREE(pChnVars->stStream.pstPack);
 		pChnVars->stStream.pstPack = NULL;
 		vi_cnt++;
 
@@ -615,10 +628,8 @@ VENC_EVENT_HANDLER_ERR:
 	vb_done_handler(chn, CHN_TYPE_IN, blk);
 
 VENC_EVENT_HANDLER_ERR_2:
-	//if (pChnVars->stStream.pstPack) {
-	//	MEM_FREE(pChnVars->stStream.pstPack);
-	//	pChnVars->stStream.pstPack = NULL;
-	//}
+	/* bindPacks remains channel-owned on failure as well as normal exit.
+	 * Keep the legacy allocation's existing error-path ownership unchanged. */
 
 	CVI_VENC_SYNC("end\n");
 
@@ -3324,14 +3335,10 @@ static CVI_S32 cviVenc_sem_timedwait_Millsecs(struct semaphore *sem, long msecs)
  * @retval 0 Success
  * @retval Non-0 Failure, please see the error code table
  */
-CVI_S32 CVI_VENC_GetStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream,
-			   CVI_S32 S32MilliSec)
+static CVI_S32 cvi_venc_get_stream(VENC_CHN VeChn, VENC_STREAM_S *pstStream,
+				 CVI_S32 S32MilliSec, VENC_PACK_S *packs,
+				 CVI_U32 capacity)
 {
-#ifdef RPC_MULTI_PROCESS
-	if (!isMaster()) {
-		return rpc_client_venc_getstream(VeChn, pstStream, S32MilliSec);
-	}
-#endif
 	CVI_S32 s32Ret = CVI_SUCCESS;
 	venc_chn_context *pChnHandle = NULL;
 	venc_enc_ctx *pEncCtx = NULL;
@@ -3362,11 +3369,21 @@ CVI_S32 CVI_VENC_GetStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream,
 		return CVI_ERR_VENC_BUSY;
 	}
 
+	if (packs) {
+		CVI_U32 needed = _cviGetNumPacks(pChnAttr->stVencAttr.enType);
+
+		if (capacity < needed)
+			return CVI_ERR_VENC_ILLEGAL_PARAM;
+		/* Match the old zeroed-allocation contract, including JPEG fields. */
+		memset(packs, 0, sizeof(*packs) * needed);
+		pstStream->pstPack = packs;
+	} else {
 #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
-	pstStream->pstPack = vzalloc(sizeof(VENC_PACK_S) * _cviGetNumPacks(pChnAttr->stVencAttr.enType));
-	if (pstStream->pstPack == NULL)
-		return CVI_ERR_VENC_NOMEM;
+		pstStream->pstPack = vzalloc(sizeof(VENC_PACK_S) * _cviGetNumPacks(pChnAttr->stVencAttr.enType));
+		if (pstStream->pstPack == NULL)
+			return CVI_ERR_VENC_NOMEM;
 #endif
+	}
 
 	if (!pVencAttr->bIsoSendFrmEn && pVbCtx->currBindMode == CVI_TRUE) {
 		CVI_VENC_TRACE("wait encode done\n");
@@ -3448,6 +3465,25 @@ CVI_S32 CVI_VENC_GetStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream,
 	return s32Ret;
 }
 
+CVI_S32 CVI_VENC_GetStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream,
+			   CVI_S32 S32MilliSec)
+{
+#ifdef RPC_MULTI_PROCESS
+	if (!isMaster())
+		return rpc_client_venc_getstream(VeChn, pstStream, S32MilliSec);
+#endif
+	return cvi_venc_get_stream(VeChn, pstStream, S32MilliSec, NULL, 0);
+}
+
+CVI_S32 CVI_VENC_GetStreamInto(VENC_CHN VeChn, VENC_STREAM_S *pstStream,
+			     CVI_S32 S32MilliSec, VENC_PACK_S *packs,
+			     CVI_U32 capacity)
+{
+	if (!pstStream || !packs)
+		return CVI_ERR_VENC_NULL_PTR;
+	return cvi_venc_get_stream(VeChn, pstStream, S32MilliSec, packs, capacity);
+}
+
 static CVI_S32 cviCheckLeftStreamFrames(venc_chn_context *pChnHandle)
 {
 	venc_chn_vars *pChnVars = pChnHandle->pChnVars;
@@ -3479,6 +3515,19 @@ CVI_S32 cviGetLeftStreamFrames(CVI_S32 VeChn)
 	pChnHandle = handle->chn_handle[VeChn];
 	pChnVars = pChnHandle->pChnVars;
 	pChnStat = &pChnVars->chnStatus;
+
+	/* In synchronous bind mode LeftStreamFrames includes an encoded frame
+	 * which the bind worker has not yet published through sem_send. Returning
+	 * POLLIN for that frame repeatedly makes nonblocking GetStream fail BUSY.
+	 * Observe the same availability consumed by GetStream, without consuming
+	 * a semaphore token here. The worker posts before waking the poll queue.
+	 * Other modes still expose the codec's queued-frame count. */
+	if (pChnHandle->pVbCtx->currBindMode == CVI_TRUE &&
+	    !pChnHandle->pChnAttr->stVencAttr.bIsoSendFrmEn)
+		/* sem_send also carries the initial worker-start token. Do not let
+		 * a reader steal it before the first encoded frame exists. */
+		return READ_ONCE(pChnStat->u32LeftStreamFrames) > 0 &&
+		       READ_ONCE(pChnVars->sem_send.count) > 0;
 
 	if (MUTEX_LOCK(&pChnHandle->chnStatusMutex) != 0) {
 		CVI_VENC_ERR("can not lock chnStatusMutex\n");

@@ -57,6 +57,8 @@ typedef struct _venc_chn_vars {
 	venc_frc frc;
 	venc_vfps vfps;
 	VENC_STREAM_S stStream;
+	/* Owned by the synchronous bind worker until the channel is destroyed. */
+	VENC_PACK_S bindPacks[MAX_NUM_PACKS];
 	VENC_JPEG_PARAM_S stJpegParam;
 	VENC_CHN_PARAM_S stChnParam;
 	VENC_CHN_STATUS_S chnStatus;

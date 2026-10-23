@@ -37,6 +37,10 @@ CVI_S32 CVI_VENC_GetChnAttr(VENC_CHN VeChn, VENC_CHN_ATTR_S *pstChnAttr);
 
 CVI_S32 CVI_VENC_GetStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream,
 			   CVI_S32 S32MilliSec);
+/* Caller owns packs and serializes access until GetStream and its copy finish. */
+CVI_S32 CVI_VENC_GetStreamInto(VENC_CHN VeChn, VENC_STREAM_S *pstStream,
+			     CVI_S32 S32MilliSec, VENC_PACK_S *packs,
+			     CVI_U32 capacity);
 CVI_S32 CVI_VENC_ReleaseStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream);
 
 CVI_S32 CVI_VENC_InsertUserData(VENC_CHN VeChn, CVI_U8 *pu8Data,
